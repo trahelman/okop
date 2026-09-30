@@ -19,7 +19,7 @@ services:
       DEV_WAN_IP: 172.31.77.2
       DEV_WAN_MAC: 02:00:ac:1f:4d:02
       DEV_WAN_GW: 172.31.77.1
-      DEV_FIXTURE: ${DEV_FIXTURE:-}
+      DEV_FIXTURE: ${DEV_FIXTURE:-proxy}
     networks:
       wan:
         ipv4_address: 172.31.77.2
