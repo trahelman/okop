@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 # shellcheck disable=SC2034
 
 OKOP_VERSION="__COMPILED_VERSION_VARIABLE__"

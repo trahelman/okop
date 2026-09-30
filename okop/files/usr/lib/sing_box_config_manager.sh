@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 #
 # Module: sing_box_config_manager.sh
 #
