@@ -5,5 +5,10 @@
 START=98
 
 start() {
+    if [ -f /tmp/devenv.start-okop ]; then
+        rm -f /tmp/devenv.start-okop
+        /etc/init.d/okop start
+    fi
+
     touch /tmp/devenv.ready
 }

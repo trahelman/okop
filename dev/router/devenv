@@ -74,6 +74,8 @@ load_initial_fixture() {
 
     cp "/root/fixtures/$fixture.uci" /etc/config/okop
     /etc/init.d/okop enable
+    # The boot sequence already listed /etc/rc.d, so devenv-ready starts okop on this boot
+    touch /tmp/devenv.start-okop
 }
 
 start() {
