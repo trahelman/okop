@@ -131,6 +131,9 @@ msgstr "DHCP содержит DNS сервер"
 msgid "Diagnostics"
 msgstr "Диагностика"
 
+msgid "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded"
+msgstr "Каталог для скачанных списков .srs и .json. Списки сохраняются между перезагрузками, поэтому sing-box запускается, даже если их не удаётся скачать"
+
 msgid "Disable autostart"
 msgstr "Отключить автостарт"
 
@@ -416,6 +419,9 @@ msgstr "Последняя"
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
+msgid "Lists Storage Path"
+msgstr "Путь хранения списков"
+
 msgid "Local Domain Lists"
 msgstr "Локальные списки доменов"
 
@@ -455,6 +461,15 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "Okop"
+msgstr "Okop"
+
+msgid "Okop Settings"
+msgstr "Настройки okop"
+
+msgid "Okop will not modify your DHCP configuration"
+msgstr "Okop не будет изменять вашу конфигурацию DHCP."
+
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
@@ -484,15 +499,6 @@ msgstr "Путь должен заканчиваться на cache.db"
 
 msgid "Pending"
 msgstr "Ожидает запуска"
-
-msgid "Okop"
-msgstr "Okop"
-
-msgid "Okop Settings"
-msgstr "Настройки okop"
-
-msgid "Okop will not modify your DHCP configuration"
-msgstr "Okop не будет изменять вашу конфигурацию DHCP."
 
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"

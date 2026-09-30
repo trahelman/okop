@@ -273,6 +273,13 @@
     ]
   },
   {
+    "call": "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded",
+    "key": "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:385"
+    ]
+  },
+  {
     "call": "Disable autostart",
     "key": "Disable autostart",
     "places": [
@@ -536,14 +543,14 @@
     "call": "Exclude NTP",
     "key": "Exclude NTP",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:402"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:426"
     ]
   },
   {
     "call": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "key": "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:403"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:427"
     ]
   },
   {
@@ -569,7 +576,7 @@
     "call": "Fastest",
     "key": "Fastest",
     "places": [
-      "src/okop/methods/custom/getDashboardSections.ts:148",
+      "src/okop/methods/custom/getDashboardSections.ts:150",
       "src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:59"
     ]
   },
@@ -954,6 +961,13 @@
     ]
   },
   {
+    "call": "Lists Storage Path",
+    "key": "Lists Storage Path",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:384"
+    ]
+  },
+  {
     "call": "Local Domain Lists",
     "key": "Local Domain Lists",
     "places": [
@@ -971,7 +985,7 @@
     "call": "Log Level",
     "key": "Log Level",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:384"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:408"
     ]
   },
   {
@@ -1051,6 +1065,27 @@
     ]
   },
   {
+    "call": "Okop",
+    "key": "Okop",
+    "places": [
+      "src/okop/tabs/dashboard/initController.ts:343"
+    ]
+  },
+  {
+    "call": "Okop Settings",
+    "key": "Okop Settings",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:26"
+    ]
+  },
+  {
+    "call": "Okop will not modify your DHCP configuration",
+    "key": "Okop will not modify your DHCP configuration",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:327"
+    ]
+  },
+  {
     "call": "Operation timed out",
     "key": "Operation timed out",
     "places": [
@@ -1089,6 +1124,7 @@
     "call": "Path cannot be empty",
     "key": "Path cannot be empty",
     "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:395",
       "src/validators/validatePath.ts:7"
     ]
   },
@@ -1096,7 +1132,8 @@
     "call": "Path must be absolute (start with /)",
     "key": "Path must be absolute (start with /)",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:366"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:366",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:399"
     ]
   },
   {
@@ -1122,27 +1159,6 @@
       "src/okop/tabs/diagnostic/diagnostic.store.ts:119",
       "src/okop/tabs/diagnostic/diagnostic.store.ts:127",
       "src/okop/tabs/diagnostic/diagnostic.store.ts:135"
-    ]
-  },
-  {
-    "call": "Okop",
-    "key": "Okop",
-    "places": [
-      "src/okop/tabs/dashboard/initController.ts:343"
-    ]
-  },
-  {
-    "call": "Okop Settings",
-    "key": "Okop Settings",
-    "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:26"
-    ]
-  },
-  {
-    "call": "Okop will not modify your DHCP configuration",
-    "key": "Okop will not modify your DHCP configuration",
-    "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:327"
     ]
   },
   {
@@ -1219,7 +1235,7 @@
     "call": "Routing Excluded IPs",
     "key": "Routing Excluded IPs",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:413"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:437"
     ]
   },
   {
@@ -1381,7 +1397,7 @@
     "call": "Select the log level for sing-box",
     "key": "Select the log level for sing-box",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:385"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:409"
     ]
   },
   {
@@ -1501,7 +1517,7 @@
     "call": "Specify a local IP address to be excluded from routing",
     "key": "Specify a local IP address to be excluded from routing",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:414"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:438"
     ]
   },
   {

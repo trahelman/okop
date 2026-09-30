@@ -379,6 +379,30 @@ function createSettingsContent(section) {
   };
 
   o = section.option(
+    form.Value,
+    "ruleset_cache_path",
+    _("Lists Storage Path"),
+    _(
+      "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded",
+    ),
+  );
+  o.value("/etc/okop/rulesets", "Flash (/etc/okop/rulesets)");
+  o.value("/tmp/okop/rulesets", "RAM (/tmp/okop/rulesets)");
+  o.default = "/etc/okop/rulesets";
+  o.rmempty = false;
+  o.validate = function (section_id, value) {
+    if (!value) {
+      return _("Path cannot be empty");
+    }
+
+    if (!value.startsWith("/")) {
+      return _("Path must be absolute (start with /)");
+    }
+
+    return true;
+  };
+
+  o = section.option(
     form.ListValue,
     "log_level",
     _("Log Level"),
