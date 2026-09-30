@@ -30,14 +30,19 @@ const EntryPoint = {
     okopMap.tabbed = true;
 
     // Sections tab
+    // Sections are listed in a table and edited in a modal, like network interfaces.
+    // The order matters: the first proxy/VPN section whose lists match wins, so rows can be dragged.
     const sectionsSection = okopMap.section(
-      form.TypedSection,
+      form.GridSection,
       "section",
       _("Sections"),
     );
     sectionsSection.anonymous = false;
     sectionsSection.addremove = true;
-    sectionsSection.template = "cbi/simpleform";
+    sectionsSection.sortable = true;
+    sectionsSection.nodescriptions = true;
+    sectionsSection.modaltitle = (section_id) =>
+      _("Section") + ": " + section_id;
 
     // Render section content
     section.createSectionContent(sectionsSection);

@@ -2,11 +2,174 @@
 "require form";
 "require baseclass";
 "require ui";
+"require uci";
 "require tools.widgets as widgets";
 "require view.okop.main as main";
 
+// Short description of a proxy link for the sections table: protocol and server name, never credentials
+function describeProxyLink(link) {
+  const match = String(link || "")
+    .trim()
+    .match(/^([a-z0-9]+):\/\/(?:[^@\/?#]*@)?([^\/?#]*)[^#]*(?:#(.*))?$/i);
+  if (!match) {
+    return _("invalid link");
+  }
+
+  const [, scheme, hostPort, name] = match;
+  let label = hostPort;
+  if (name) {
+    try {
+      label = decodeURIComponent(name);
+    } catch (e) {
+      label = name;
+    }
+  }
+
+  return `${scheme.toLowerCase()} · ${label}`;
+}
+
+function describeOutboundJson(json) {
+  try {
+    const outbound = JSON.parse(json);
+    const server = outbound.server
+      ? ` · ${outbound.server}${outbound.server_port ? ":" + outbound.server_port : ""}`
+      : "";
+    return `${outbound.type || "outbound"}${server}`;
+  } catch (e) {
+    return _("invalid JSON");
+  }
+}
+
+function toArray(value) {
+  if (value == null || value === "") {
+    return [];
+  }
+
+  return Array.isArray(value) ? value : [value];
+}
+
+function countEntries(section_id, listType, dynamicOption, textOption) {
+  switch (uci.get("okop", section_id, listType)) {
+    case "dynamic":
+      return toArray(uci.get("okop", section_id, dynamicOption)).length;
+    case "text":
+      return main.parseValueList(uci.get("okop", section_id, textOption) || "")
+        .length;
+    default:
+      return 0;
+  }
+}
+
+function describeConnection(section_id) {
+  const get = (option) => uci.get("okop", section_id, option);
+  const lines = [];
+
+  switch (get("connection_type")) {
+    case "proxy": {
+      const configType = get("proxy_config_type") || "url";
+      if (configType === "url") {
+        lines.push(describeProxyLink(get("proxy_string")));
+      } else if (configType === "outbound") {
+        lines.push(describeOutboundJson(get("outbound_json")));
+      } else {
+        const links = toArray(
+          get(configType === "urltest" ? "urltest_proxy_links" : "selector_proxy_links"),
+        );
+        lines.push(
+          `${configType === "urltest" ? "URLTest" : "Selector"} · ` +
+            _("links: %d").format(links.length),
+        );
+      }
+      break;
+    }
+    case "vpn":
+      lines.push(`VPN · ${get("interface") || _("no interface")}`);
+      if (get("domain_resolver_enabled") === "1") {
+        lines.push(_("domain resolver: %s").format(get("domain_resolver_dns_server")));
+      }
+      break;
+    case "block":
+      lines.push(_("Block"));
+      break;
+    case "exclusion":
+      lines.push(_("Exclusion"));
+      break;
+    default:
+      lines.push(_("not configured"));
+  }
+
+  if (get("mixed_proxy_enabled") === "1") {
+    lines.push(_("mixed proxy on port %s").format(get("mixed_proxy_port")));
+  }
+
+  return E("div", {}, lines.map((line) => E("div", {}, line)));
+}
+
+function describeLists(section_id) {
+  const get = (option) => uci.get("okop", section_id, option);
+  const lines = [];
+
+  const community = toArray(get("community_lists")).map(
+    (key) => main.DOMAIN_LIST_OPTIONS[key] || key,
+  );
+  if (community.length) {
+    lines.push(community.join(", "));
+  }
+
+  const counters = [
+    [
+      _("domains: %d"),
+      countEntries(section_id, "user_domain_list_type", "user_domains", "user_domains_text"),
+    ],
+    [
+      _("subnets: %d"),
+      countEntries(section_id, "user_subnet_list_type", "user_subnets", "user_subnets_text"),
+    ],
+    [
+      _("local lists: %d"),
+      toArray(get("local_domain_lists")).length + toArray(get("local_subnet_lists")).length,
+    ],
+    [
+      _("remote lists: %d"),
+      toArray(get("remote_domain_lists")).length + toArray(get("remote_subnet_lists")).length,
+    ],
+    [_("fully routed IPs: %d"), toArray(get("fully_routed_ips")).length],
+  ]
+    .filter(([, count]) => count > 0)
+    .map(([label, count]) => label.format(count));
+  if (counters.length) {
+    lines.push(counters.join(", "));
+  }
+
+  if (!lines.length) {
+    return E("em", {}, _("no lists"));
+  }
+
+  return E("div", {}, lines.map((line) => E("div", {}, line)));
+}
+
+// Columns of the sections table, the options themselves are edited in the modal
+function createSectionColumns(section) {
+  section.children.forEach((option) => {
+    option.modalonly = true;
+  });
+
+  let o = section.option(form.DummyValue, "_connection", _("Connection"));
+  o.modalonly = false;
+  o.textvalue = describeConnection;
+
+  o = section.option(form.DummyValue, "_lists", _("Lists"));
+  o.modalonly = false;
+  o.textvalue = describeLists;
+}
+
 function createSectionContent(section) {
-  let o = section.option(
+  section.tab("basic", _("Connection"));
+  section.tab("lists", _("Lists"));
+  section.tab("advanced", _("Advanced"));
+
+  let o = section.taboption(
+    "basic",
     form.ListValue,
     "connection_type",
     _("Connection Type"),
@@ -17,7 +180,8 @@ function createSectionContent(section) {
   o.value("block", "Block");
   o.value("exclusion", "Exclusion");
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.ListValue,
     "proxy_config_type",
     _("Configuration Type"),
@@ -30,7 +194,8 @@ function createSectionContent(section) {
   o.default = "url";
   o.depends("connection_type", "proxy");
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.TextValue,
     "proxy_string",
     _("Proxy Configuration URL"),
@@ -59,7 +224,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.TextValue,
     "outbound_json",
     _("Outbound Configuration"),
@@ -82,7 +248,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.DynamicList,
     "selector_proxy_links",
     _("Selector Proxy Links"),
@@ -105,7 +272,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.DynamicList,
     "urltest_proxy_links",
     _("URLTest Proxy Links"),
@@ -128,7 +296,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.ListValue,
     "urltest_check_interval",
     _("URLTest Check Interval"),
@@ -141,7 +310,8 @@ function createSectionContent(section) {
   o.default = "3m";
   o.depends("proxy_config_type", "urltest");
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.Value,
     "urltest_tolerance",
     _("URLTest Tolerance"),
@@ -164,7 +334,8 @@ function createSectionContent(section) {
     return _('Must be a number in the range of 50 - 1000');
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.Value,
     "urltest_testing_url",
     _("URLTest Testing URL"),
@@ -192,7 +363,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.Flag,
     "enable_udp_over_tcp",
     _("UDP over TCP"),
@@ -202,7 +374,8 @@ function createSectionContent(section) {
   o.depends("connection_type", "proxy");
   o.rmempty = false;
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     widgets.DeviceSelect,
     "interface",
     _("Network Interface"),
@@ -248,7 +421,8 @@ function createSectionContent(section) {
     return !isWireless;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.Flag,
     "domain_resolver_enabled",
     _("Domain Resolver"),
@@ -258,7 +432,8 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends("connection_type", "vpn");
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.ListValue,
     "domain_resolver_dns_type",
     _("DNS Protocol Type"),
@@ -271,7 +446,8 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends("domain_resolver_enabled", "1");
 
-  o = section.option(
+  o = section.taboption(
+    "basic",
     form.Value,
     "domain_resolver_dns_server",
     _("DNS Server"),
@@ -293,7 +469,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "community_lists",
     _("Community Lists"),
@@ -381,7 +558,8 @@ function createSectionContent(section) {
     }
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.ListValue,
     "user_domain_list_type",
     _("User Domain List Type"),
@@ -393,7 +571,8 @@ function createSectionContent(section) {
   o.default = "disabled";
   o.rmempty = false;
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "user_domains",
     _("User Domains"),
@@ -419,7 +598,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.TextValue,
     "user_domains_text",
     _("User Domains List"),
@@ -461,7 +641,8 @@ function createSectionContent(section) {
     return true;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.ListValue,
     "user_subnet_list_type",
     _("User Subnet List Type"),
@@ -473,7 +654,8 @@ function createSectionContent(section) {
   o.default = "disabled";
   o.rmempty = false;
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "user_subnets",
     _("User Subnets"),
@@ -499,7 +681,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.TextValue,
     "user_subnets_text",
     _("User Subnets List"),
@@ -540,7 +723,8 @@ function createSectionContent(section) {
     return true;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "local_domain_lists",
     _("Local Domain Lists"),
@@ -563,7 +747,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "local_subnet_lists",
     _("Local Subnet Lists"),
@@ -586,7 +771,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "remote_domain_lists",
     _("Remote Domain Lists"),
@@ -609,7 +795,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "lists",
     form.DynamicList,
     "remote_subnet_lists",
     _("Remote Subnet Lists"),
@@ -632,7 +819,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "advanced",
     form.DynamicList,
     "fully_routed_ips",
     _("Fully Routed IPs"),
@@ -659,7 +847,8 @@ function createSectionContent(section) {
     return validation.message;
   };
 
-  o = section.option(
+  o = section.taboption(
+    "advanced",
     form.Flag,
     "mixed_proxy_enabled",
     _("Enable Mixed Proxy"),
@@ -672,7 +861,8 @@ function createSectionContent(section) {
   o.depends("connection_type", "proxy");
   o.depends("connection_type", "vpn");
 
-  o = section.option(
+  o = section.taboption(
+    "advanced",
     form.Value,
     "mixed_proxy_port",
     _("Mixed Proxy Port"),
@@ -684,7 +874,8 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends("mixed_proxy_enabled", "1");
 
-  o = section.option(
+  o = section.taboption(
+    "advanced",
     form.Flag,
     "resolve_real_ip_for_routing",
     _("Resolve real IP for routing"),
@@ -694,6 +885,8 @@ function createSectionContent(section) {
   o.rmempty = false;
   o.depends("connection_type", "proxy");
   o.depends("connection_type", "vpn");
+
+  createSectionColumns(section);
 }
 
 const EntryPoint = {
