@@ -33,6 +33,7 @@ OPENWRT_IMAGE=openwrt/rootfs:x86-64-24.10.8 OPENWRT_PLATFORM=linux/amd64 dev/oko
 ```
 dev/okop-dev up                 # собрать и запустить
 dev/okop-dev fixture proxy      # загрузить dev/fixtures/proxy.uci и перезапустить okop
+dev/okop-dev i18n               # пересобрать русский перевод LuCI после правки .po
 dev/okop-dev check              # DNS и HTTPS с клиента, состояние sing-box
 dev/okop-dev logs               # логи okop и sing-box
 dev/okop-dev reboot             # перезагрузить роутер
@@ -43,6 +44,8 @@ dev/okop-dev down               # остановить всё
 ```
 
 LuCI: http://127.0.0.1:8080, пользователь `root` без пароля. Порт меняется переменной `DEV_LUCI_PORT`.
+
+Интерфейс LuCI по умолчанию на русском: перевод приложения компилируется из `luci-app-okop/po/ru/okop.po` при `up` и `reset` (утилита `po2lmo` из LuCI, сервис `po2lmo` в `compose.yml`). После правки перевода выполните `dev/okop-dev i18n`. Язык меняется переменной `DEV_LUCI_LANG`, например `DEV_LUCI_LANG=en`.
 
 ## Фикстуры и сценарии
 

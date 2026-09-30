@@ -129,7 +129,7 @@ msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
 
 msgid "Delay in milliseconds before reloading okop after interface UP"
-msgstr "Задержка в миллисекундах перед перезагрузкой okop после поднятия интерфейса"
+msgstr "Задержка в миллисекундах перед перезагрузкой Okop после поднятия интерфейса"
 
 msgid "Delay value cannot be empty"
 msgstr "Значение задержки не может быть пустым"
@@ -519,7 +519,7 @@ msgid "Okop"
 msgstr "Okop"
 
 msgid "Okop Settings"
-msgstr "Настройки okop"
+msgstr "Настройки Okop"
 
 msgid "Okop will not modify your DHCP configuration"
 msgstr "Okop не будет изменять вашу конфигурацию DHCP."
@@ -726,10 +726,10 @@ msgid "Specify the path to the list file located on the router filesystem"
 msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
 
 msgid "Start okop"
-msgstr "Запустить okop"
+msgstr "Запустить Okop"
 
 msgid "Stop okop"
-msgstr "Остановить okop"
+msgstr "Остановить Okop"
 
 msgid "subnets: %d"
 msgstr "подсетей: %d"

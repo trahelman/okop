@@ -5,7 +5,7 @@ FROM --platform=${OPENWRT_PLATFORM} ${OPENWRT_IMAGE}
 # Okop runtime dependencies (see okop/Makefile)
 RUN mkdir -p /var/lock && \
     opkg update && \
-    opkg install sing-box curl jq kmod-nft-tproxy coreutils-base64 bind-dig && \
+    opkg install sing-box curl jq kmod-nft-tproxy coreutils-base64 bind-dig luci-i18n-base-ru && \
     rm -rf /tmp/opkg-lists
 
 # okop sources are mounted from the repository by compose.yml

@@ -79,6 +79,15 @@ reboot_router() {
     fi
 }
 
+# The translation is compiled from the mounted .po file, so run it again after editing translations
+install_translation() {
+    info "Installing the Russian translation of the LuCI app"
+    # Built separately: on the first run compose would print the build log into the compiled file
+    dc build -q po2lmo > /dev/null
+    dc run --rm -T po2lmo 2> /dev/null |
+        on_router sh -c 'cat > /tmp/okop.ru.lmo && mv /tmp/okop.ru.lmo /usr/lib/lua/luci/i18n/okop.ru.lmo && rm -f /tmp/luci-indexcache*'
+}
+
 load_fixture() {
     local name="$1"
     info "Loading fixture '$name'"

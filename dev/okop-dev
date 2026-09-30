@@ -17,6 +17,7 @@ Commands:
     reboot              Reboot the router (/tmp is wiped, /etc is kept)
     sh [service]        Open a shell on router (default), client or proxy
     fixture <name>      Load dev/fixtures/<name>.uci as /etc/config/okop and restart okop
+    i18n                Compile and install the Russian translation of the LuCI app
     logs                Follow okop and sing-box logs on the router
     check               Check DNS and HTTPS from the LAN client
     proxy up|down       Start or stop the WAN-side proxy
@@ -45,12 +46,14 @@ case "${1:-}" in
 up)
     dc up -d --build
     wait_boot
+    install_translation
     ;;
 down) dc down --remove-orphans ;;
 reset)
     dc rm -sf router
     dc up -d router
     wait_boot
+    install_translation
     ;;
 reboot) reboot_router ;;
 sh) dc exec "${2:-router}" sh ;;
@@ -58,6 +61,7 @@ fixture)
     [ -n "${2:-}" ] || { usage; exit 1; }
     load_fixture "$2"
     ;;
+i18n) install_translation ;;
 logs) dc exec router sh -c "logread -f -e 'okop|sing-box'" ;;
 check) cmd_check ;;
 proxy)

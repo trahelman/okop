@@ -20,6 +20,7 @@ services:
       DEV_WAN_MAC: 02:00:ac:1f:4d:02
       DEV_WAN_GW: 172.31.77.1
       DEV_FIXTURE: ${DEV_FIXTURE:-proxy}
+      DEV_LUCI_LANG: ${DEV_LUCI_LANG:-ru}
     networks:
       wan:
         ipv4_address: 172.31.77.2
@@ -62,6 +63,15 @@ services:
     networks:
       wan:
         ipv4_address: 172.31.77.3
+
+  # Compiles the LuCI app translation, used by "dev/okop-dev i18n"
+  po2lmo:
+    build: po2lmo
+    profiles:
+      - tools
+    volumes:
+      - ../luci-app-okop/po:/po:ro
+    command: ["sh", "-c", "po2lmo /po/ru/okop.po /tmp/okop.ru.lmo && cat /tmp/okop.ru.lmo"]
 
 networks:
   wan:
