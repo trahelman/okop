@@ -1,3 +1,4 @@
+# shellcheck shell=busybox
 OKOP_LIB="/usr/lib/okop"
 . "$OKOP_LIB/helpers.sh"
 . "$OKOP_LIB/sing_box_config_manager.sh"
