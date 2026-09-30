@@ -30,13 +30,11 @@ services:
         mac_address: 02:00:c0:a8:4d:01
     ports:
       - "127.0.0.1:${DEV_LUCI_PORT:-8080}:80"
+    # Directories, not single files: git and editors replace files, which breaks single-file mounts.
+    # router/Dockerfile links the installed paths to these directories.
     volumes:
-      - ../okop/files/usr/bin/okop:/usr/bin/okop:ro
-      - ../okop/files/usr/lib:/usr/lib/okop:ro
-      - ../okop/files/etc/init.d/okop:/etc/init.d/okop:ro
-      - ../luci-app-okop/htdocs/luci-static/resources/view/okop:/www/luci-static/resources/view/okop:ro
-      - ../luci-app-okop/root/usr/share/luci/menu.d/luci-app-okop.json:/usr/share/luci/menu.d/luci-app-okop.json:ro
-      - ../luci-app-okop/root/usr/share/rpcd/acl.d/luci-app-okop.json:/usr/share/rpcd/acl.d/luci-app-okop.json:ro
+      - ../okop/files:/opt/okop:ro
+      - ../luci-app-okop:/opt/luci-app-okop:ro
       - ./fixtures:/root/fixtures:ro
 
   # LAN device behind the router, checks what a user would see
