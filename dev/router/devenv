@@ -1,0 +1,100 @@
+#!/bin/sh /etc/rc.common
+# shellcheck shell=dash disable=SC2034
+# Dev environment only: adapts OpenWrt running in Docker to the network assigned by Docker.
+# Docker attaches networks in no particular order, so devices are found by the MACs set in compose.yml.
+
+START=11
+
+env_get() {
+    tr '\0' '\n' < /proc/1/environ | sed -n "s/^$1=//p"
+}
+
+device_by_mac() {
+    local mac="$1" dev
+    for dev in /sys/class/net/*; do
+        if [ "$(cat "$dev/address" 2> /dev/null)" = "$mac" ]; then
+            basename "$dev"
+            return 0
+        fi
+    done
+    return 1
+}
+
+write_network_config() {
+    local lan_dev="$1" wan_dev="$2" lan_ip="$3" wan_ip="$4" wan_gw="$5"
+
+    cat > /etc/config/network << EOF
+config interface 'loopback'
+	option device 'lo'
+	option proto 'static'
+	option ipaddr '127.0.0.1'
+	option netmask '255.0.0.0'
+
+config device 'lan_bridge'
+	option name 'br-lan'
+	option type 'bridge'
+	list ports '$lan_dev'
+
+config interface 'lan'
+	option device 'br-lan'
+	option proto 'static'
+	option ipaddr '$lan_ip'
+	option netmask '255.255.255.0'
+
+config interface 'wan'
+	option device '$wan_dev'
+	option proto 'static'
+	option ipaddr '$wan_ip'
+	option netmask '255.255.255.0'
+	option gateway '$wan_gw'
+	list dns '1.1.1.1'
+	list dns '8.8.8.8'
+EOF
+}
+
+allow_luci_from_wan() {
+    uci -q get firewall.dev_luci > /dev/null && return 0
+
+    uci -q batch << EOF
+set firewall.dev_luci=rule
+set firewall.dev_luci.name='Allow-LuCI-from-Docker-host'
+set firewall.dev_luci.src='wan'
+set firewall.dev_luci.proto='tcp'
+set firewall.dev_luci.dest_port='80'
+set firewall.dev_luci.target='ACCEPT'
+commit firewall
+EOF
+}
+
+load_initial_fixture() {
+    local fixture
+    fixture="$(env_get DEV_FIXTURE)"
+    [ -n "$fixture" ] || return 0
+    [ -f /etc/config/okop ] && return 0
+
+    cp "/root/fixtures/$fixture.uci" /etc/config/okop
+    /etc/init.d/okop enable
+}
+
+start() {
+    local lan_ip wan_ip wan_gw lan_dev wan_dev
+    lan_ip="$(env_get DEV_LAN_IP)"
+    wan_ip="$(env_get DEV_WAN_IP)"
+    wan_gw="$(env_get DEV_WAN_GW)"
+
+    lan_dev="$(device_by_mac "$(env_get DEV_LAN_MAC)")"
+    wan_dev="$(device_by_mac "$(env_get DEV_WAN_MAC)")"
+    if [ -z "$lan_dev" ] || [ -z "$wan_dev" ]; then
+        echo "devenv: could not find LAN or WAN device" > /dev/kmsg
+        return 1
+    fi
+
+    write_network_config "$lan_dev" "$wan_dev" "$lan_ip" "$wan_ip" "$wan_gw"
+    allow_luci_from_wan
+    load_initial_fixture
+
+    # Docker bind-mounts its own resolv.conf, point the router to the local dnsmasq like on real OpenWrt
+    printf 'search lan\nnameserver 127.0.0.1\n' > /etc/resolv.conf
+
+    echo "devenv: LAN $lan_dev ($lan_ip), WAN $wan_dev ($wan_ip via $wan_gw)" > /dev/kmsg
+}

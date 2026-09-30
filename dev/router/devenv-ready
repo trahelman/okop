@@ -1,0 +1,9 @@
+#!/bin/sh /etc/rc.common
+# shellcheck disable=SC2034
+# Dev environment only: marks the end of the boot sequence for dev/okop-dev.
+
+START=98
+
+start() {
+    touch /tmp/devenv.ready
+}

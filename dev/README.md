@@ -1,0 +1,53 @@
+# Локальная тестовая среда
+
+OpenWrt в Docker с исходниками okop, смонтированными напрямую из репозитория. Правки в `okop/files` и `luci-app-okop` видны в контейнере сразу, пересобирать пакеты не нужно.
+
+## Что внутри
+
+```
+          wan 172.31.77.0/24                     lan 192.168.77.0/24
+ интернет ── Docker ── router (OpenWrt 24.10) ── client (alpine)
+                  │     172.31.77.2 / 192.168.77.1   192.168.77.10
+                  └── proxy (sing-box, shadowsocks)
+                        172.31.77.3:8388
+```
+
+- **router** — официальный образ `openwrt/rootfs` с procd, netifd, dnsmasq, fw4 и LuCI. Зависимости okop установлены в образе, сам okop смонтирован из `okop/files` и `luci-app-okop`.
+- **client** — устройство в LAN. С него проверяем DNS и доступ в интернет так, как их видит пользователь.
+- **proxy** — shadowsocks-сервер на стороне WAN, рабочий аутбаунд для роутера. Его можно остановить, чтобы сымитировать недоступный аутбаунд.
+
+Перезапуск контейнера роутера ведёт себя как перезагрузка: `/tmp` очищается, `/etc` сохраняется.
+
+## Требования
+
+Docker с `docker compose`. Образ по умолчанию собран под arm64 (Apple Silicon). Для x86_64:
+
+```
+OPENWRT_IMAGE=openwrt/rootfs:x86-64-24.10.8 OPENWRT_PLATFORM=linux/amd64 dev/okop-dev up
+```
+
+## Использование
+
+```
+dev/okop-dev up                 # собрать и запустить
+dev/okop-dev fixture proxy      # загрузить dev/fixtures/proxy.uci и перезапустить okop
+dev/okop-dev check              # DNS и HTTPS с клиента, состояние sing-box
+dev/okop-dev logs               # логи okop и sing-box
+dev/okop-dev reboot             # перезагрузить роутер
+dev/okop-dev proxy down         # остановить прокси
+dev/okop-dev sh                 # shell на роутере (sh client — на клиенте)
+dev/okop-dev scenarios          # прогнать все сценарии
+dev/okop-dev down               # остановить всё
+```
+
+LuCI: http://127.0.0.1:8080, пользователь `root` без пароля. Порт меняется переменной `DEV_LUCI_PORT`.
+
+## Фикстуры и сценарии
+
+- `fixtures/*.uci` — готовые `/etc/config/okop`. Загружаются командой `fixture <имя>`, а при первом старте роутера — из переменной `DEV_FIXTURE`.
+- `scenarios/*.sh` — проверки поведения: выставляют состояние, перезагружают роутер и проверяют результат с клиента. Код возврата 0 означает, что сценарий пройден.
+
+| Сценарий | Что проверяет |
+|---|---|
+| `outbound-down-on-boot` | Роутер загружается, пока прокси для скачивания списков недоступен |
+| `vpn-interface-missing` | Списки скачиваются через VPN-секцию, интерфейса которой нет |

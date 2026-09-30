@@ -1,0 +1,79 @@
+#!/bin/sh
+# shellcheck shell=dash
+# Local test environment for Okop, see dev/README.md
+
+set -eu
+
+. "$(dirname "$0")/lib.sh"
+
+usage() {
+    cat << EOF
+Usage: dev/okop-dev <command> [args]
+
+Commands:
+    up                  Build and start the environment
+    down                Stop the environment and remove containers
+    reset               Recreate the router from a clean image
+    reboot              Reboot the router (/tmp is wiped, /etc is kept)
+    sh [service]        Open a shell on router (default), client or proxy
+    fixture <name>      Load dev/fixtures/<name>.uci as /etc/config/okop and restart okop
+    logs                Follow okop and sing-box logs on the router
+    check               Check DNS and HTTPS from the LAN client
+    proxy up|down       Start or stop the WAN-side proxy
+    scenario <name>     Run dev/scenarios/<name>.sh
+    scenarios           Run all scenarios
+
+LuCI: http://127.0.0.1:\${DEV_LUCI_PORT:-8080} (root, empty password)
+EOF
+}
+
+cmd_check() {
+    if client_resolves; then pass "client resolves openwrt.org"; else fail "client does not resolve openwrt.org" || true; fi
+    if client_fetches; then pass "client fetches https://openwrt.org"; else fail "client cannot fetch https://openwrt.org" || true; fi
+    if singbox_stable; then pass "sing-box is running"; else fail "sing-box is not running or restarts in a loop" || true; fi
+}
+
+cmd_scenarios() {
+    local failed=0 scenario
+    for scenario in "$DEV_DIR"/scenarios/*.sh; do
+        sh "$scenario" || failed=$((failed + 1))
+    done
+    [ "$failed" -eq 0 ] || fail "$failed scenario(s) failed"
+}
+
+case "${1:-}" in
+up)
+    dc up -d --build
+    wait_boot
+    ;;
+down) dc down --remove-orphans ;;
+reset)
+    dc rm -sf router
+    dc up -d router
+    wait_boot
+    ;;
+reboot) reboot_router ;;
+sh) dc exec "${2:-router}" sh ;;
+fixture)
+    [ -n "${2:-}" ] || { usage; exit 1; }
+    load_fixture "$2"
+    ;;
+logs) dc exec router sh -c "logread -f -e 'okop|sing-box'" ;;
+check) cmd_check ;;
+proxy)
+    case "${2:-}" in
+    up) dc start proxy ;;
+    down) dc stop proxy ;;
+    *) usage; exit 1 ;;
+    esac
+    ;;
+scenario)
+    [ -n "${2:-}" ] || { usage; exit 1; }
+    sh "$DEV_DIR/scenarios/$2.sh"
+    ;;
+scenarios) cmd_scenarios ;;
+*)
+    usage
+    exit 1
+    ;;
+esac

@@ -1,0 +1,81 @@
+# Local test environment for Okop, see dev/README.md
+name: okop-dev
+
+services:
+  router:
+    build:
+      context: router
+      args:
+        OPENWRT_IMAGE: ${OPENWRT_IMAGE:-openwrt/rootfs:armsr-armv8-24.10.8}
+        OPENWRT_PLATFORM: ${OPENWRT_PLATFORM:-linux/aarch64_generic}
+    platform: ${OPENWRT_PLATFORM:-linux/aarch64_generic}
+    privileged: true
+    # Like on a real router: /tmp is RAM and is wiped on reboot
+    tmpfs:
+      - /tmp
+    environment:
+      DEV_LAN_IP: 192.168.77.1
+      DEV_LAN_MAC: 02:00:c0:a8:4d:01
+      DEV_WAN_IP: 172.31.77.2
+      DEV_WAN_MAC: 02:00:ac:1f:4d:02
+      DEV_WAN_GW: 172.31.77.1
+      DEV_FIXTURE: ${DEV_FIXTURE:-}
+    networks:
+      wan:
+        ipv4_address: 172.31.77.2
+        mac_address: 02:00:ac:1f:4d:02
+        gw_priority: 1
+      lan:
+        ipv4_address: 192.168.77.1
+        mac_address: 02:00:c0:a8:4d:01
+    ports:
+      - "127.0.0.1:${DEV_LUCI_PORT:-8080}:80"
+    volumes:
+      - ../okop/files/usr/bin/okop:/usr/bin/okop:ro
+      - ../okop/files/usr/lib:/usr/lib/okop:ro
+      - ../okop/files/etc/init.d/okop:/etc/init.d/okop:ro
+      - ../luci-app-okop/htdocs/luci-static/resources/view/okop:/www/luci-static/resources/view/okop:ro
+      - ../luci-app-okop/root/usr/share/luci/menu.d/luci-app-okop.json:/usr/share/luci/menu.d/luci-app-okop.json:ro
+      - ../luci-app-okop/root/usr/share/rpcd/acl.d/luci-app-okop.json:/usr/share/rpcd/acl.d/luci-app-okop.json:ro
+      - ./fixtures:/root/fixtures:ro
+
+  # LAN device behind the router, checks what a user would see
+  client:
+    build: client
+    cap_add:
+      - NET_ADMIN
+    networks:
+      lan:
+        ipv4_address: 192.168.77.10
+    command:
+      - sh
+      - -c
+      - |
+        ip route replace default via 192.168.77.1
+        echo 'nameserver 192.168.77.1' > /etc/resolv.conf
+        exec sleep infinity
+
+  # Shadowsocks server on the WAN side, a working outbound for the router
+  proxy:
+    image: ghcr.io/sagernet/sing-box:v1.12.22
+    command: ["run", "-c", "/etc/sing-box/config.json"]
+    volumes:
+      - ./proxy/config.json:/etc/sing-box/config.json:ro
+    networks:
+      wan:
+        ipv4_address: 172.31.77.3
+
+networks:
+  wan:
+    ipam:
+      config:
+        - subnet: 172.31.77.0/24
+          gateway: 172.31.77.1
+  # Not internal: Docker drops traffic leaving an internal network even when it goes to the router's MAC.
+  # The client's default route points to the router, so its traffic still goes through it.
+  lan:
+    ipam:
+      config:
+        - subnet: 192.168.77.0/24
+          # .1 is taken by the router
+          gateway: 192.168.77.254
