@@ -126,6 +126,7 @@ start_main() {
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
     mkdir -p "$(get_ruleset_cache_path)"
+    cleanup_previous_run
 
     # base
     route_table_rule_mark
@@ -144,14 +145,31 @@ start_main() {
     echo $! > /var/run/okop_list_update.pid
 }
 
-stop_main() {
-    log "Stopping the okop"
+# A previous run may have ended without "okop stop" (crash, OOM kill, a second start). Its rule sets in /tmp
+# would be taken as already configured and left out of the new sing-box config, and its nft rules would be
+# added a second time.
+cleanup_previous_run() {
+    stop_list_update
+    rm -f "$TMP_RULESET_FOLDER"/*
 
+    if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
+        log "Removing the nft table left by a previous run" "debug"
+        nft delete table inet "$NFT_TABLE_NAME"
+    fi
+}
+
+stop_list_update() {
     if okop_background_job_running /var/run/okop_list_update.pid; then
         kill "$(cat /var/run/okop_list_update.pid)" 2> /dev/null
         log "Stopped list_update"
     fi
     rm -f /var/run/okop_list_update.pid
+}
+
+stop_main() {
+    log "Stopping the okop"
+
+    stop_list_update
 
     remove_cron_job
 
