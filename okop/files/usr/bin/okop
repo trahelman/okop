@@ -449,9 +449,12 @@ sing_box_dns_available() {
 
 # Keeps LAN DNS working: dnsmasq uses sing-box only while sing-box answers DNS queries
 dns_guard() {
-    local failures=0
+    local failures=0 stopping=0
 
-    while true; do
+    # Finish the current step on TERM, so that dnsmasq is never left half-configured
+    trap 'stopping=1' TERM
+
+    while [ "$stopping" -eq 0 ]; do
         if sing_box_dns_available; then
             failures=0
             if ! dnsmasq_uses_sing_box; then
@@ -466,7 +469,9 @@ dns_guard() {
             fi
         fi
 
-        sleep "$DNS_GUARD_INTERVAL"
+        # wait is interrupted by TERM, unlike sleep
+        sleep "$DNS_GUARD_INTERVAL" &
+        wait $!
     done
 }
 
@@ -481,9 +486,15 @@ dns_guard_start() {
 dns_guard_stop() {
     [ -f "$DNS_GUARD_PID_FILE" ] || return 0
 
-    local pid
+    local pid i
     pid="$(cat "$DNS_GUARD_PID_FILE")"
-    kill "$pid" 2> /dev/null && log "Stopped DNS guard" "debug"
+    if kill "$pid" 2> /dev/null; then
+        for i in $(seq 1 10); do
+            kill -0 "$pid" 2> /dev/null || break
+            sleep 1
+        done
+        log "Stopped DNS guard" "debug"
+    fi
     rm -f "$DNS_GUARD_PID_FILE"
 }
 
@@ -1248,7 +1259,7 @@ cleanup_ruleset_cache() {
 
         filename="$(basename "$filepath")"
         tag="${filename%.*}"
-        if ! grep -q "^$tag " "$REMOTE_RULESETS_INDEX"; then
+        if ! awk -v tag="$tag" '$1 == tag { found = 1 } END { exit !found }' "$REMOTE_RULESETS_INDEX"; then
             log "Removing unused cached rule set $filepath"
             rm -f "$filepath"
         fi
@@ -1289,10 +1300,12 @@ update_remote_ruleset() {
         return 0
     fi
 
-    # Copy next to the target first, so that the rule set is replaced atomically
-    if ! cp "$tmpfile" "$filepath.tmp" || ! chmod 644 "$filepath.tmp" || ! mv "$filepath.tmp" "$filepath"; then
+    # Copy next to the target first, so that the rule set is replaced atomically.
+    # The name is unique since list_update may run on start and by cron at the same time.
+    local partfile="$filepath.$$.tmp"
+    if ! cp "$tmpfile" "$partfile" || ! chmod 644 "$partfile" || ! mv "$partfile" "$filepath"; then
         log "Failed to save rule set $filepath" "error"
-        rm -f "$tmpfile" "$filepath.tmp"
+        rm -f "$tmpfile" "$partfile"
         return 1
     fi
 
