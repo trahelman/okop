@@ -35,6 +35,9 @@ msgstr "Активные соединения"
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
 
+msgid "Advanced"
+msgstr "Дополнительно"
+
 msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr "Обеспечивает доступ к YACD из WAN. Убедитесь, что в брандмауэре открыт соответствующий порт."
 
@@ -49,6 +52,9 @@ msgstr "Необходимо указать хотя бы одну действ�
 
 msgid "Available actions"
 msgstr "Доступные действия"
+
+msgid "Block"
+msgstr "Block"
 
 msgid "Bootsrap DNS"
 msgstr "Bootstrap DNS"
@@ -100,6 +106,9 @@ msgstr "Настройки сервиса Okop"
 
 msgid "Configuration Type"
 msgstr "Тип конфигурации"
+
+msgid "Connection"
+msgstr "Подключение"
 
 msgid "Connection Type"
 msgstr "Тип подключения"
@@ -172,6 +181,12 @@ msgstr "Не паникуйте, всё можно исправить, прос�
 
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
+
+msgid "domain resolver: %s"
+msgstr "резолвер доменов: %s"
+
+msgid "domains: %d"
+msgstr "доменов: %d"
 
 msgid "Dont Touch My DHCP!"
 msgstr "Dont Touch My DHCP!"
@@ -251,6 +266,9 @@ msgstr "Исключить NTP"
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr "Исключите трафик протокола NTP из туннеля, чтобы предотвратить его маршрутизацию через прокси-сервер или VPN."
 
+msgid "Exclusion"
+msgstr "Exclusion"
+
 msgid "Failed to copy!"
 msgstr "Не удалось скопировать!"
 
@@ -262,6 +280,9 @@ msgstr "Самый быстрый"
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
+
+msgid "fully routed IPs: %d"
+msgstr "полностью маршрутизируемых IP: %d"
 
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
@@ -335,8 +356,14 @@ msgstr "Неверный URL Hysteria2: неподдерживаемый тип 
 msgid "Invalid IP address"
 msgstr "Неверный IP-адрес"
 
+msgid "invalid JSON"
+msgstr "некорректный JSON"
+
 msgid "Invalid JSON format"
 msgstr "Неверный формат JSON"
+
+msgid "invalid link"
+msgstr "некорректная ссылка"
 
 msgid "Invalid path format. Path must start with \"/\" and contain valid characters"
 msgstr "Неверный формат пути. Путь должен начинаться с \"/\" и содержать допустимые символы"
@@ -422,14 +449,23 @@ msgstr "Обнаружены проблемы"
 msgid "Latest"
 msgstr "Последняя"
 
+msgid "links: %d"
+msgstr "ссылок: %d"
+
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
+
+msgid "Lists"
+msgstr "Списки"
 
 msgid "Lists Storage Path"
 msgstr "Путь хранения списков"
 
 msgid "Local Domain Lists"
 msgstr "Локальные списки доменов"
+
+msgid "local lists: %d"
+msgstr "локальных списков: %d"
 
 msgid "Local Subnet Lists"
 msgstr "Локальные списки подсетей"
@@ -443,6 +479,9 @@ msgstr "Основной DNS"
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
+msgid "mixed proxy on port %s"
+msgstr "смешанный прокси на порту %s"
+
 msgid "Mixed Proxy Port"
 msgstr "Порт смешанного прокси"
 
@@ -455,8 +494,17 @@ msgstr "Должно быть числом от 50 до 1000"
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
+msgid "no interface"
+msgstr "интерфейс не выбран"
+
+msgid "no lists"
+msgstr "нет списков"
+
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
+
+msgid "not configured"
+msgstr "не настроено"
 
 msgid "Not implement yet"
 msgstr "Ещё не реализовано"
@@ -521,6 +569,9 @@ msgstr "Нельзя использовать несколько региона�
 msgid "Remote Domain Lists"
 msgstr "Внешние списки доменов"
 
+msgid "remote lists: %d"
+msgstr "удалённых списков: %d"
+
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
 
@@ -565,6 +616,9 @@ msgstr "Ограничения Russia inside"
 
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr "Секретный ключ для аутентификации удаленного доступа к YACD при включенном доступе через WAN."
+
+msgid "Section"
+msgstr "Секция"
 
 msgid "Sections"
 msgstr "Секции"
@@ -676,6 +730,9 @@ msgstr "Запустить okop"
 
 msgid "Stop okop"
 msgstr "Остановить okop"
+
+msgid "subnets: %d"
+msgstr "подсетей: %d"
 
 msgid "Successfully copied!"
 msgstr "Успешно скопировано!"
