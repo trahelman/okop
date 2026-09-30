@@ -738,7 +738,7 @@ configure_outbound_handler() {
         outbound_tag="$(get_outbound_tag_by_section "$section")"
 
         if [ "$domain_resolver_enabled" -eq 1 ]; then
-            domain_resolver_dns_server_address="$(url_get_host "$dns_server")"
+            domain_resolver_dns_server_address="$(url_get_host "$domain_resolver_dns_server")"
             if ! is_ipv4 "$domain_resolver_dns_server_address"; then
                 dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
             fi
