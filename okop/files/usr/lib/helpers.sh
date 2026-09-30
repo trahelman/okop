@@ -1,6 +1,6 @@
 # shellcheck shell=busybox
-# OpenWrt BusyBox ash supports [[ =~ ]], glob matching in [[ ]] and $RANDOM
-# shellcheck disable=SC3015,SC2330,SC3028
+# OpenWrt BusyBox ash supports [[ =~ ]], glob matching in [[ ]], $RANDOM and $'..'
+# shellcheck disable=SC3015,SC2330,SC3028,SC3003
 # Check if string is valid IPv4
 is_ipv4() {
     local ip="$1"
