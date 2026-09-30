@@ -265,11 +265,11 @@ download_to_file() {
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
             http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                wget -O "$filepath" "$url" && return 0
+                wget -T 30 -O "$filepath" "$url" && return 0
             log "Attempt $attempt/$retries to download $url through the proxy failed, trying directly" "warn"
         fi
 
-        wget -O "$filepath" "$url" && return 0
+        wget -T 30 -O "$filepath" "$url" && return 0
 
         log "Attempt $attempt/$retries to download $url failed" "warn"
         sleep "$wait"

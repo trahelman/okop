@@ -178,6 +178,9 @@ stop_main() {
 }
 
 start() {
+    # A guard of a previous start must not reconfigure dnsmasq concurrently
+    dns_guard_stop
+
     local dont_touch_dhcp
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
@@ -493,6 +496,13 @@ dns_guard_stop() {
             kill -0 "$pid" 2> /dev/null || break
             sleep 1
         done
+
+        if kill -0 "$pid" 2> /dev/null; then
+            log "DNS guard did not stop in time, killing it" "warn"
+            kill -9 "$pid" 2> /dev/null
+            # Drop dnsmasq changes the guard may have left uncommitted
+            uci revert dhcp
+        fi
         log "Stopped DNS guard" "debug"
     fi
     rm -f "$DNS_GUARD_PID_FILE"
@@ -646,7 +656,8 @@ sing_box_configure_service() {
 sing_box_init_config() {
     local config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
 
-    : > "$REMOTE_RULESETS_INDEX"
+    # Built in a separate file, a cron list_update may be reading the current one
+    : > "$REMOTE_RULESETS_INDEX.new"
 
     sing_box_configure_log
     sing_box_configure_inbounds
@@ -656,6 +667,7 @@ sing_box_init_config() {
     sing_box_configure_experimental
     sing_box_additional_inbounds
     sing_box_save_config
+    mv "$REMOTE_RULESETS_INDEX.new" "$REMOTE_RULESETS_INDEX"
     cleanup_ruleset_cache
 }
 
@@ -855,9 +867,17 @@ sing_box_configure_dns() {
 
     config=$(sing_box_cm_add_dns_reject_rule "$config" "query_type" "HTTPS")
     config=$(sing_box_cm_add_dns_reject_rule "$config" "domain_suffix" '"use-application-dns.net"')
+    service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
+
+    # A rule with rule sets does not match at all while all of its rule sets are empty (lists not downloaded yet),
+    # so the service domains used by checks and the DNS guard get a rule of their own
+    config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
+    config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_SERVICE_DNS_RULE_TAG" "domain" "$service_domains")
+
+    # The service domains are kept here too, so that the rule never matches everything when no lists are configured
     config=$(sing_box_cm_add_dns_route_rule "$config" "$SB_FAKEIP_DNS_SERVER_TAG" "$SB_FAKEIP_DNS_RULE_TAG")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rewrite_ttl" "$rewrite_ttl")
-    service_domains=$(comma_string_to_json_array "$FAKEIP_TEST_DOMAIN,$CHECK_PROXY_IP_DOMAIN")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "domain" "$service_domains")
 }
 
@@ -1240,20 +1260,27 @@ add_cached_remote_ruleset() {
     filepath="$(get_cached_ruleset_filepath "$tag" "$format")"
     if ! file_exists "$filepath"; then
         log "No downloaded copy of $url yet, the rule set is empty until the lists are updated" "warn"
-        if ! create_empty_ruleset_file "$filepath" "$format"; then
-            log "Failed to create an empty rule set $filepath" "error"
-            return 1
-        fi
+    elif ! is_valid_ruleset_file "$filepath" "$format"; then
+        log "Cached rule set $filepath is damaged, the rule set is empty until the lists are updated" "warn"
+    fi
+
+    if ! is_valid_ruleset_file "$filepath" "$format" && ! create_empty_ruleset_file "$filepath" "$format"; then
+        # Never leave the route rule without matchers: it would catch all traffic
+        log "Failed to create an empty rule set $filepath, sing-box will download $url on start" "error"
+        config=$(sing_box_cm_add_remote_ruleset "$config" "$tag" "$format" "$url")
+        return 0
     fi
 
     config=$(sing_box_cm_add_local_ruleset "$config" "$tag" "$format" "$filepath")
-    echo "$tag $format $url" >> "$REMOTE_RULESETS_INDEX"
+    echo "$tag $format $url" >> "$REMOTE_RULESETS_INDEX.new"
 }
 
 # Removes cached rule sets that are no longer used. Only okop files (*-ruleset.srs/json) are touched,
 # since the cache path can be changed by the user.
 cleanup_ruleset_cache() {
     local filepath filename tag
+    rm -f "$(get_ruleset_cache_path)"/*-ruleset.*.tmp
+
     for filepath in "$(get_ruleset_cache_path)"/*-ruleset.srs "$(get_ruleset_cache_path)"/*-ruleset.json; do
         [ -f "$filepath" ] || continue
 
@@ -1494,6 +1521,7 @@ import_community_service_subnet_list_handler() {
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $service list failed" "error"
+        rm -f "$tmpfile"
         return 1
     fi
 
@@ -1527,7 +1555,7 @@ import_domains_from_remote_domain_list_handler() {
     log "Detected file extension: '$file_extension'" "debug"
     case "$file_extension" in
     json | srs)
-        log "No update needed - sing-box manages updates automatically."
+        log "Rule set $url is updated separately" "debug"
         ;;
     *)
         log "Import domains from a remote plain-text list"
@@ -1548,6 +1576,7 @@ import_domains_from_remote_plain_file() {
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $url list failed" "error"
+        rm -f "$tmpfile"
         return 1
     fi
 
@@ -1605,6 +1634,7 @@ import_subnets_from_remote_json_file() {
 
     if [ $? -ne 0 ] || [ ! -s "$json_tmpfile" ]; then
         log "Download $url list failed" "error"
+        rm -f "$json_tmpfile" "$subnets_tmpfile"
         return 1
     fi
 
@@ -1626,11 +1656,13 @@ import_subnets_from_remote_srs_file() {
 
     if [ $? -ne 0 ] || [ ! -s "$binary_tmpfile" ]; then
         log "Download $url list failed" "error"
+        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
         return 1
     fi
 
     if ! decompile_binary_ruleset "$binary_tmpfile" "$json_tmpfile"; then
         log "Failed to decompile binary rule set file" "error"
+        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
         return 1
     fi
 
@@ -1651,6 +1683,7 @@ import_subnets_from_remote_plain_file() {
 
     if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
         log "Download $url list failed" "error"
+        rm -f "$tmpfile"
         return 1
     fi
 

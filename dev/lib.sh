@@ -100,6 +100,11 @@ client_gets_fakeip() {
     on_client dig +short +time=2 +tries=1 "@$ROUTER_LAN_IP" "$domain" A | grep -qE '^198\.1[89]\.'
 }
 
+# sing-box answers the service domain with a fake IP by itself, even before any list is downloaded
+singbox_answers_fakeip() {
+    on_router dig +short +time=2 +tries=1 @127.0.0.42 fakeip.podkop.fyi A | grep -qE '^198\.1[89]\.'
+}
+
 client_fetches() {
     local url="${1:-https://openwrt.org}"
     on_client curl -sS -o /dev/null -m 10 "$url"

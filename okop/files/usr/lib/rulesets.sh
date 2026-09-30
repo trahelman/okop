@@ -171,21 +171,26 @@ create_empty_ruleset_file() {
     local filepath="$1"
     local format="$2"
 
-    case "$format" in
-    source)
-        jq -n '{version: 3, rules: []}' > "$filepath"
-        ;;
-    binary)
-        local source_tmpfile
-        source_tmpfile="$(mktemp)"
-        jq -n '{version: 3, rules: []}' > "$source_tmpfile"
-        sing-box rule-set compile "$source_tmpfile" -o "$filepath"
-        local status=$?
+    local source_tmpfile partfile="$filepath.$$.tmp" status=0
+    source_tmpfile="$(mktemp)"
+    jq -n '{version: 3, rules: []}' > "$source_tmpfile" || status=1
+
+    if [ "$status" -eq 0 ]; then
+        case "$format" in
+        source) cp "$source_tmpfile" "$partfile" || status=1 ;;
+        binary) sing-box rule-set compile "$source_tmpfile" -o "$partfile" || status=1 ;;
+        *) status=1 ;;
+        esac
+    fi
+
+    # Written next to the target and moved, so that a failure never leaves a damaged file behind
+    if [ "$status" -eq 0 ] && mv "$partfile" "$filepath"; then
         rm -f "$source_tmpfile"
-        return $status
-        ;;
-    *) return 1 ;;
-    esac
+        return 0
+    fi
+
+    rm -f "$source_tmpfile" "$partfile"
+    return 1
 }
 
 # Checks that sing-box can read a ruleset file in the given format

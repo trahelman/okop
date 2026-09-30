@@ -45,6 +45,12 @@ else
     fail "sing-box is not running or restarts in a loop" || result=1
 fi
 
+if singbox_answers_fakeip; then
+    pass "sing-box answers the fakeip service domain with empty rule sets"
+else
+    fail "sing-box does not answer the fakeip service domain with empty rule sets" || result=1
+fi
+
 info "Unblocking GitHub, starting the proxy and updating the lists"
 unblock_github
 dc start proxy > /dev/null
