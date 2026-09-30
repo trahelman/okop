@@ -1,0 +1,18 @@
+Okop
+====
+
+This software is derived from Podkop open-source software
+(https://github.com/itdoginfo/podkop), distributed under the
+GNU General Public License, version 2 (see LICENSE).
+
+Okop is an independent project. It is not affiliated with, endorsed by,
+or supported by the authors of Podkop. "Podkop" is a trademark of its
+respective owners and is referenced here only to describe the origin
+of this software.
+
+The original Podkop sources were modified starting from upstream commit
+c0a2736 (2026). The full list of changes is available in the Git history
+of this repository.
+
+Service domains ip.podkop.fyi and fakeip.podkop.fyi, used by the
+connectivity checks, are operated by the Podkop authors.

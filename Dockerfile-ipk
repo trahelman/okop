@@ -1,11 +1,18 @@
-FROM itdoginfo/openwrt-sdk-ipk:24.10.6
+FROM openwrt/sdk:x86_64-v24.10.6
 
-ARG PODKOP_VERSION
+WORKDIR /builder
 
-COPY ./podkop /builder/package/feeds/utilities/podkop
-COPY ./luci-app-podkop /builder/package/feeds/luci/luci-app-podkop
+# Kept in a separate layer so that CI can reuse the downloaded feeds from cache
+RUN ./scripts/feeds update -a && \
+    ./scripts/feeds install luci-base && \
+    mkdir -p /builder/package/feeds/utilities/ /builder/package/feeds/luci/
 
-RUN export PODKOP_VERSION="v${PODKOP_VERSION}" && \
+ARG OKOP_VERSION
+
+COPY ./okop /builder/package/feeds/utilities/okop
+COPY ./luci-app-okop /builder/package/feeds/luci/luci-app-okop
+
+RUN export OKOP_VERSION="v${OKOP_VERSION}" && \
     make defconfig && \
-    make package/podkop/compile V=s -j4 && \
-    make package/luci-app-podkop/compile V=s -j4
+    make package/okop/compile V=s -j4 && \
+    make package/luci-app-okop/compile V=s -j4

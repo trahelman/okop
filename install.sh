@@ -1,8 +1,9 @@
 #!/bin/sh
 # shellcheck shell=dash
 
-REPO="https://api.github.com/repos/itdoginfo/podkop/releases/latest"
-DOWNLOAD_DIR="/tmp/podkop"
+REPO="https://api.github.com/repos/trahelman/okop/releases/latest"
+DOWNLOAD_DIR="/tmp/okop"
+PODKOP_CONFIG_BACKUP="/etc/podkop.bak"
 COUNT=3
 
 # Cached flag to switch between ipk or apk package managers
@@ -61,43 +62,44 @@ pkg_install() {
     fi
 }
 
-update_config() {
-    printf "\033[48;5;196m\033[1m╔══════════════════════════════════════════════════════════════════════╗\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ ! Обнаружена старая версия podkop.                                   ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Если продолжите обновление, вам потребуется настроить Podkop заново. ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Старая конфигурация будет сохранена в /etc/config/podkop-070         ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Подробности: https://github.com/itdoginfo/podkop                     ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Точно хотите продолжить?                                             ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
-
-    echo ""
-
-    printf "\033[48;5;196m\033[1m╔══════════════════════════════════════════════════════════════════════╗\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ ! Detected old podkop version.                                       ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ If you continue the update, you will need to RECONFIGURE podkop.     ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Your old configuration will be saved to /etc/config/podkop-070       ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Details: https://github.com/itdoginfo/podkop                         ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m║ Are you sure you want to continue?                                   ║\033[0m\n"
-    printf "\033[48;5;196m\033[1m╚══════════════════════════════════════════════════════════════════════╝\033[0m\n"
-
+confirm_podkop_removal() {
+    msg "Обнаружен установленный Podkop. Okop и Podkop не могут работать одновременно."
+    msg "Podkop будет остановлен и удалён, его конфигурация будет перенесена в Okop."
+    msg "Копия конфигурации Podkop будет сохранена в $PODKOP_CONFIG_BACKUP"
+    msg "Podkop is installed. Okop and Podkop cannot work at the same time."
+    msg "Podkop will be stopped and removed, its configuration will be migrated to Okop."
+    msg "A copy of the Podkop configuration will be saved to $PODKOP_CONFIG_BACKUP"
     msg "Continue? (yes/no)"
 
     while true; do
-            read -r -p '' CONFIG_UPDATE
-            case $CONFIG_UPDATE in
-
-            yes|y|Y)
-                mv /etc/config/podkop /etc/config/podkop-070
-                wget -O /etc/config/podkop https://raw.githubusercontent.com/itdoginfo/podkop/refs/heads/main/podkop/files/etc/config/podkop
-                msg "Podkop config has been reset to default. Your old config saved in /etc/config/podkop-070"
-                break
-                ;;
-            *)
-                msg "Exit"
-                exit 1
-                ;;
+        read -r -p '' REMOVE_PODKOP
+        case $REMOVE_PODKOP in
+        yes|y|Y)
+            break
+            ;;
+        *)
+            msg "Exit"
+            exit 1
+            ;;
         esac
     done
+}
+
+remove_podkop() {
+    [ -f /etc/config/podkop ] && cp /etc/config/podkop "$PODKOP_CONFIG_BACKUP"
+
+    /etc/init.d/podkop stop
+    /etc/init.d/podkop disable
+    pkg_remove luci-i18n-podkop-ru
+    pkg_remove luci-app-podkop
+    pkg_remove podkop
+
+    # Okop migrates /etc/config/podkop on install, keep it if the package manager removed it
+    if [ ! -f /etc/config/podkop ] && [ -f "$PODKOP_CONFIG_BACKUP" ]; then
+        cp "$PODKOP_CONFIG_BACKUP" /etc/config/podkop
+    fi
+
+    msg "Podkop has been removed"
 }
 
 main() {
@@ -108,14 +110,14 @@ main() {
 
     pkg_list_update || { echo "Packages list update failed"; exit 1; }
 
-    if [ -f "/etc/init.d/podkop" ]; then
-        msg "Podkop is already installed. Upgrading..."
+    if [ -f "/etc/init.d/okop" ]; then
+        msg "Okop is already installed. Upgrading..."
     else
-        msg "Installing podkop..."
+        msg "Installing okop..."
     fi
 
     if command -v curl >/dev/null 2>&1; then
-        check_response=$(curl -s "https://api.github.com/repos/itdoginfo/podkop/releases/latest")
+        check_response=$(curl -s "https://api.github.com/repos/trahelman/okop/releases/latest")
 
         if echo "$check_response" | grep -q 'API rate limit '; then
             msg "You've reached the GitHub rate limit. Repeat in five minutes."
@@ -154,12 +156,16 @@ main() {
     done
 
     # Check if any files were downloaded
-    if ! ls "$DOWNLOAD_DIR"/*podkop* >/dev/null 2>&1; then
+    if ! ls "$DOWNLOAD_DIR"/*okop* >/dev/null 2>&1; then
         msg "No packages were downloaded successfully"
         exit 1
     fi
 
-    for pkg in podkop luci-app-podkop; do
+    if [ -f /etc/init.d/podkop ]; then
+        remove_podkop
+    fi
+
+    for pkg in okop luci-app-okop; do
         file=""
         for f in "$DOWNLOAD_DIR"/"$pkg"*; do
             if [ -f "$f" ]; then
@@ -175,16 +181,16 @@ main() {
     done
 
     ru=""
-    for f in "$DOWNLOAD_DIR"/luci-i18n-podkop-ru*; do
+    for f in "$DOWNLOAD_DIR"/luci-i18n-okop-ru*; do
         if [ -f "$f" ]; then
             ru=$(basename "$f")
             break
         fi
     done
     if [ -n "$ru" ]; then
-        if pkg_is_installed luci-i18n-podkop-ru; then
+        if pkg_is_installed luci-i18n-okop-ru; then
                 msg "Upgrading Russian translation..."
-                pkg_remove luci-i18n-podkop*
+                pkg_remove luci-i18n-okop*
                 pkg_install "$DOWNLOAD_DIR/$ru"
         else
             msg "Русский язык интерфейса ставим? y/n (Install the Russian interface language?)"
@@ -192,7 +198,7 @@ main() {
                 read -r -p '' RUS
                 case $RUS in
                 y)
-                    pkg_remove luci-i18n-podkop*
+                    pkg_remove luci-i18n-okop*
                     pkg_install "$DOWNLOAD_DIR/$ru"
                     break
                     ;;
@@ -207,7 +213,7 @@ main() {
         fi
     fi
 
-    find "$DOWNLOAD_DIR" -type f -name '*podkop*' -exec rm {} \;
+    find "$DOWNLOAD_DIR" -type f -name '*okop*' -exec rm {} \;
 }
 
 check_system() {
@@ -218,9 +224,7 @@ check_system() {
     # Check OpenWrt version
     openwrt_version=$(cat /etc/openwrt_release | grep DISTRIB_RELEASE | cut -d"'" -f2 | cut -d'.' -f1)
     if [ "$openwrt_version" = "23" ]; then
-        msg "OpenWrt 23.05 не поддерживается начиная с podkop 0.5.0"
-        msg "Для OpenWrt 23.05 используйте podkop версии 0.4.11 или устанавливайте зависимости и podkop вручную"
-        msg "Подробности: https://podkop.net/docs/install/#%d1%83%d1%81%d1%82%d0%b0%d0%bd%d0%be%d0%b2%d0%ba%d0%b0-%d0%bd%d0%b0-2305"
+        msg "OpenWrt 23.05 не поддерживается. Требуется OpenWrt 24.10 или выше"
         exit 1
     fi
 
@@ -240,33 +244,8 @@ check_system() {
         exit 1
     fi
 
-    # Check version
-    if command -v podkop > /dev/null 2>&1; then
-        local version
-        version=$(/usr/bin/podkop show_version 2> /dev/null)
-        if [ -n "$version" ]; then
-            version=$(echo "$version" | sed 's/^v//')
-            local major
-            local minor
-            local patch
-            major=$(echo "$version" | cut -d. -f1)
-            minor=$(echo "$version" | cut -d. -f2)
-            patch=$(echo "$version" | cut -d. -f3)
-
-            # Compare version: must be >= 0.7.0
-            if [ "$major" -gt 0 ] ||
-                [ "$major" -eq 0 ] && [ "$minor" -gt 7 ] ||
-                [ "$major" -eq 0 ] && [ "$minor" -eq 7 ] && [ "$patch" -ge 0 ]; then
-                msg "Podkop version >= 0.7.0"
-                break
-            else
-                msg "Podkop version < 0.7.0"
-                update_config
-            fi
-        else
-            msg "Unknown podkop version"
-            update_config
-        fi
+    if [ -f /etc/init.d/podkop ]; then
+        confirm_podkop_removal
     fi
 
     if pkg_is_installed https-dns-proxy; then
@@ -302,7 +281,7 @@ sing_box() {
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than the required version $required_version."
         msg "Removing old version..."
-        service podkop stop
+        service okop stop
         pkg_remove sing-box
     fi
 }

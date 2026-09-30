@@ -1,0 +1,14 @@
+{
+  "admin/services/okop": {
+    "title": "Okop",
+    "order": 42,
+    "action": {
+      "type": "view",
+      "path": "okop/okop"
+    },
+    "depends": {
+			"acl": [ "luci-app-okop" ],
+			"uci": { "okop": true }
+		}
+  }
+}

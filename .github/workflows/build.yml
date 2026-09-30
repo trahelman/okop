@@ -23,7 +23,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   build:
-    name: Builder for ${{ matrix.package_type }} podkop and luci-app-podkop
+    name: Builder for ${{ matrix.package_type }} okop and luci-app-okop
     runs-on: ubuntu-latest
     needs: preparation
     strategy:
@@ -36,17 +36,23 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build ${{ matrix.package_type }}
         uses: docker/build-push-action@v6.18.0
         with:
           file: ./Dockerfile-${{ matrix.package_type }}
           context: .
-          tags: podkop:ci-${{ matrix.package_type }}
+          tags: okop:ci-${{ matrix.package_type }}
+          load: true
+          cache-from: type=gha,scope=sdk-${{ matrix.package_type }}
+          cache-to: type=gha,mode=max,scope=sdk-${{ matrix.package_type }}
           build-args: |
-            PODKOP_VERSION=${{ needs.preparation.outputs.version }}
+            OKOP_VERSION=${{ needs.preparation.outputs.version }}
 
       - name: Create ${{ matrix.package_type }} Docker container
-        run: docker create --name ${{ matrix.package_type }} podkop:ci-${{ matrix.package_type }}
+        run: docker create --name ${{ matrix.package_type }} okop:ci-${{ matrix.package_type }}
 
       - name: Copy files from ${{ matrix.package_type }} Docker container
         run: |
@@ -73,9 +79,9 @@ jobs:
           VERSION="${{ needs.preparation.outputs.version }}"
 
           mkdir -p ./filtered-bin/${{ matrix.package_type }}
-          cp ./bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-*.${{ matrix.package_type }} "./filtered-bin/${{ matrix.package_type }}/luci-i18n-podkop-ru-${VERSION}.${{ matrix.package_type }}"
-          cp ./bin/${{ matrix.package_type }}/podkop-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
-          cp ./bin/${{ matrix.package_type }}/luci-app-podkop-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
+          cp ./bin/${{ matrix.package_type }}/luci-i18n-okop-ru-*.${{ matrix.package_type }} "./filtered-bin/${{ matrix.package_type }}/luci-i18n-okop-ru-${VERSION}.${{ matrix.package_type }}"
+          cp ./bin/${{ matrix.package_type }}/okop-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
+          cp ./bin/${{ matrix.package_type }}/luci-app-okop-*.${{ matrix.package_type }} ./filtered-bin/${{ matrix.package_type }}/
 
       - name: Remove Docker container
         run: docker rm ${{ matrix.package_type }}

@@ -1,0 +1,28 @@
+{
+  "luci-app-okop": {
+    "description": "Grant UCI and RPC access to LuCI app okop",
+    "read": {
+      "file": {
+        "/etc/init.d/okop": [
+          "exec"
+        ],
+        "/usr/bin/okop": [
+          "exec"
+        ]
+      },
+      "ubus": {
+        "service": [
+          "list"
+        ]
+      },
+      "uci": [
+        "okop"
+      ]
+    },
+    "write": {
+      "uci": [
+        "okop"
+      ]
+    }
+  }
+}

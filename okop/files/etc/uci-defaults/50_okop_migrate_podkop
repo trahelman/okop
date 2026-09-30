@@ -1,0 +1,37 @@
+#!/bin/sh
+# Migrate configuration from Podkop, the project Okop is derived from.
+
+[ -f /etc/config/podkop ] || exit 0
+[ "$(uci -q get okop.settings.migrated_from_podkop)" = "1" ] && exit 0
+
+cp /etc/config/podkop /etc/config/okop
+uci -q set okop.settings.migrated_from_podkop='1'
+
+# Podkop may have left dnsmasq reconfigured without restoring it.
+# Move its backup under Okop's keys so that Okop can restore dnsmasq later.
+dnsmasq_backup_found=0
+for key in server noresolv cachesize; do
+    value="$(uci -q get "dhcp.@dnsmasq[0].podkop_$key")"
+    [ -n "$value" ] || continue
+
+    dnsmasq_backup_found=1
+    uci -q delete "dhcp.@dnsmasq[0].okop_$key"
+    if [ "$key" = "server" ]; then
+        for server in $value; do
+            uci add_list "dhcp.@dnsmasq[0].okop_server=$server"
+        done
+    else
+        uci set "dhcp.@dnsmasq[0].okop_$key=$value"
+    fi
+    uci -q delete "dhcp.@dnsmasq[0].podkop_$key"
+done
+
+if [ "$dnsmasq_backup_found" -eq 1 ]; then
+    uci set okop.settings.shutdown_correctly='0'
+    uci commit dhcp
+fi
+
+uci commit okop
+logger -t "okop" "Configuration migrated from /etc/config/podkop"
+
+exit 0
