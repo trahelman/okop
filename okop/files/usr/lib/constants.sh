@@ -9,6 +9,11 @@ CHECK_PROXY_IP_DOMAIN="ip.podkop.fyi"
 FAKEIP_TEST_DOMAIN="fakeip.podkop.fyi"
 TMP_SING_BOX_FOLDER="/tmp/sing-box"
 TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
+# Remote .srs/.json rule sets are downloaded by okop and kept on persistent storage,
+# so that sing-box starts even when the lists cannot be downloaded
+RULESET_CACHE_DEFAULT_PATH="/etc/okop/rulesets"
+# Remote rule sets of the current sing-box configuration: "<tag> <format> <url>" per line
+REMOTE_RULESETS_INDEX="$TMP_SING_BOX_FOLDER/remote_rulesets"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"

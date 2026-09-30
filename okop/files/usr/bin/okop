@@ -125,6 +125,7 @@ start_main() {
 
     mkdir -p "$TMP_SING_BOX_FOLDER"
     mkdir -p "$TMP_RULESET_FOLDER"
+    mkdir -p "$(get_ruleset_cache_path)"
 
     # base
     route_table_rule_mark
@@ -559,21 +560,19 @@ list_update() {
         return 1
     fi
 
-    # Github Check
+    # Github Check, lists are downloaded directly when the proxy does not work
+    local service_proxy_address
+    service_proxy_address="$(get_service_proxy_address)"
     for i in $(seq 1 $curl_attempts); do
-        local service_proxy_address
-        service_proxy_address="$(get_service_proxy_address)"
+        if [ -n "$service_proxy_address" ] &&
+            curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
+            echolog "✅ GitHub connection check passed (via proxy)"
+            break
+        fi
 
-        if [ -n "$service_proxy_address" ]; then
-            if curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
-                echolog "✅ GitHub connection check passed (via proxy)"
-                break
-            fi
-        else
-            if curl -s -m $curl_timeout https://github.com > /dev/null; then
-                echolog "✅ GitHub connection check passed"
-                break
-            fi
+        if curl -s -m $curl_timeout https://github.com > /dev/null; then
+            echolog "✅ GitHub connection check passed"
+            break
         fi
 
         echolog "GitHub is unavailable [$i/$curl_attempts] (max-timeout=$curl_timeout)"
@@ -590,6 +589,7 @@ list_update() {
 
     echolog "📥 Downloading and processing lists..."
 
+    update_remote_rulesets
     config_foreach import_community_subnet_lists "section"
     config_foreach import_domains_from_remote_domain_lists "section"
     config_foreach import_subnets_from_remote_subnet_lists "section"
@@ -635,6 +635,8 @@ sing_box_configure_service() {
 sing_box_init_config() {
     local config='{"log":{},"dns":{},"ntp":{},"certificate":{},"endpoints":[],"inbounds":[],"outbounds":[],"route":{},"services":[],"experimental":{}}'
 
+    : > "$REMOTE_RULESETS_INDEX"
+
     sing_box_configure_log
     sing_box_configure_inbounds
     sing_box_configure_outbounds
@@ -643,6 +645,7 @@ sing_box_init_config() {
     sing_box_configure_experimental
     sing_box_additional_inbounds
     sing_box_save_config
+    cleanup_ruleset_cache
 }
 
 sing_box_configure_log() {
@@ -1050,14 +1053,12 @@ configure_community_list_handler() {
     local section="$2"
     local route_rule_tag="$3"
 
-    local ruleset_tag format url update_interval detour
+    local ruleset_tag format url
     ruleset_tag="$(get_ruleset_tag "$section" "$tag" "community")"
     format="binary"
     url="$SRS_MAIN_URL/$tag.srs"
-    detour="$(get_download_detour_tag)"
-    config_get update_interval "settings" "update_interval" "1d"
 
-    config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
+    add_cached_remote_ruleset "$ruleset_tag" "$format" "$url" || return 1
     config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
     config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
 }
@@ -1183,14 +1184,12 @@ configure_remote_domain_or_subnet_list_handler() {
     case "$file_extension" in
     json | srs)
         log "Creating a remote $type ruleset from the source URL" "info"
-        local basename ruleset_tag format detour update_interval
+        local basename ruleset_tag format
         basename=$(url_get_basename "$url")
         ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
         format="$(get_ruleset_format_by_file_extension "$file_extension")"
-        detour="$(get_download_detour_tag)"
-        config_get update_interval "settings" "update_interval" "1d"
 
-        config=$(sing_box_cm_add_remote_ruleset "$config" "$ruleset_tag" "$format" "$url" "$detour" "$update_interval")
+        add_cached_remote_ruleset "$ruleset_tag" "$format" "$url" || return 1
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
         domains)
@@ -1204,6 +1203,101 @@ configure_remote_domain_or_subnet_list_handler() {
         prepare_source_ruleset "$section" "remote" "$type" "$route_rule_tag"
         ;;
     esac
+}
+
+get_ruleset_cache_path() {
+    local ruleset_cache_path
+    config_get ruleset_cache_path "settings" "ruleset_cache_path" "$RULESET_CACHE_DEFAULT_PATH"
+    echo "$ruleset_cache_path"
+}
+
+get_cached_ruleset_filepath() {
+    local tag="$1"
+    local format="$2"
+
+    echo "$(get_ruleset_cache_path)/$tag.$(get_ruleset_file_extension_by_format "$format")"
+}
+
+# Remote rule sets are given to sing-box as local files: the last downloaded copy, or a rule set without rules
+# until the first download succeeds. list_update downloads them, sing-box reloads local rule sets on file change.
+add_cached_remote_ruleset() {
+    local tag="$1"
+    local format="$2"
+    local url="$3"
+
+    local filepath
+    filepath="$(get_cached_ruleset_filepath "$tag" "$format")"
+    if ! file_exists "$filepath"; then
+        log "No downloaded copy of $url yet, the rule set is empty until the lists are updated" "warn"
+        if ! create_empty_ruleset_file "$filepath" "$format"; then
+            log "Failed to create an empty rule set $filepath" "error"
+            return 1
+        fi
+    fi
+
+    config=$(sing_box_cm_add_local_ruleset "$config" "$tag" "$format" "$filepath")
+    echo "$tag $format $url" >> "$REMOTE_RULESETS_INDEX"
+}
+
+# Removes cached rule sets that are no longer used. Only okop files (*-ruleset.srs/json) are touched,
+# since the cache path can be changed by the user.
+cleanup_ruleset_cache() {
+    local filepath filename tag
+    for filepath in "$(get_ruleset_cache_path)"/*-ruleset.srs "$(get_ruleset_cache_path)"/*-ruleset.json; do
+        [ -f "$filepath" ] || continue
+
+        filename="$(basename "$filepath")"
+        tag="${filename%.*}"
+        if ! grep -q "^$tag " "$REMOTE_RULESETS_INDEX"; then
+            log "Removing unused cached rule set $filepath"
+            rm -f "$filepath"
+        fi
+    done
+}
+
+update_remote_rulesets() {
+    [ -s "$REMOTE_RULESETS_INDEX" ] || return 0
+
+    local tag format url failed=0
+    while read -r tag format url; do
+        update_remote_ruleset "$tag" "$format" "$url" || failed=1
+    done < "$REMOTE_RULESETS_INDEX"
+
+    return "$failed"
+}
+
+update_remote_ruleset() {
+    local tag="$1"
+    local format="$2"
+    local url="$3"
+
+    local filepath tmpfile
+    filepath="$(get_cached_ruleset_filepath "$tag" "$format")"
+    tmpfile="$(mktemp)"
+
+    if ! download_to_file "$url" "$tmpfile" "$(get_service_proxy_address)" ||
+        ! is_valid_ruleset_file "$tmpfile" "$format"; then
+        log "Failed to download rule set $url, the previous copy is kept" "error"
+        rm -f "$tmpfile"
+        return 1
+    fi
+
+    # Avoid needless writes to flash and sing-box reloads
+    if cmp -s "$tmpfile" "$filepath"; then
+        log "Rule set $tag is up to date" "debug"
+        rm -f "$tmpfile"
+        return 0
+    fi
+
+    # Copy next to the target first, so that the rule set is replaced atomically
+    if ! cp "$tmpfile" "$filepath.tmp" || ! chmod 644 "$filepath.tmp" || ! mv "$filepath.tmp" "$filepath"; then
+        log "Failed to save rule set $filepath" "error"
+        rm -f "$tmpfile" "$filepath.tmp"
+        return 1
+    fi
+
+    rm -f "$tmpfile"
+    log "Rule set $tag has been updated"
 }
 
 sing_box_configure_experimental() {
@@ -1563,18 +1657,6 @@ get_service_proxy_address() {
     config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         echo "$SB_SERVICE_MIXED_INBOUND_ADDRESS:$SB_SERVICE_MIXED_INBOUND_PORT"
-    else
-        echo ""
-    fi
-}
-
-get_download_detour_tag() {
-    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
-    if [ "$download_lists_via_proxy" -eq 1 ]; then
-        local download_lists_via_proxy_section section_outbound_tag
-        config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
-        section_outbound_tag="$(get_outbound_tag_by_section "$download_lists_via_proxy_section")"
-        echo "$section_outbound_tag"
     else
         echo ""
     fi

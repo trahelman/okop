@@ -157,6 +157,51 @@ get_ruleset_format_by_file_extension() {
     echo "$format"
 }
 
+# Returns the file extension used for a ruleset format (source → json, binary → srs)
+get_ruleset_file_extension_by_format() {
+    case "$1" in
+    source) echo "json" ;;
+    binary) echo "srs" ;;
+    *) return 1 ;;
+    esac
+}
+
+# Creates a ruleset file without rules in the given format
+create_empty_ruleset_file() {
+    local filepath="$1"
+    local format="$2"
+
+    case "$format" in
+    source)
+        jq -n '{version: 3, rules: []}' > "$filepath"
+        ;;
+    binary)
+        local source_tmpfile
+        source_tmpfile="$(mktemp)"
+        jq -n '{version: 3, rules: []}' > "$source_tmpfile"
+        sing-box rule-set compile "$source_tmpfile" -o "$filepath"
+        local status=$?
+        rm -f "$source_tmpfile"
+        return $status
+        ;;
+    *) return 1 ;;
+    esac
+}
+
+# Checks that sing-box can read a ruleset file in the given format
+is_valid_ruleset_file() {
+    local filepath="$1"
+    local format="$2"
+
+    [ -s "$filepath" ] || return 1
+
+    case "$format" in
+    source) sing-box rule-set compile "$filepath" -o /dev/null > /dev/null 2>&1 ;;
+    binary) sing-box rule-set decompile "$filepath" -o /dev/null > /dev/null 2>&1 ;;
+    *) return 1 ;;
+    esac
+}
+
 # Decompiles a sing-box SRS binary file into a JSON ruleset file
 decompile_binary_ruleset() {
     local binary_filepath="$1"
