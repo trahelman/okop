@@ -17,7 +17,7 @@ result=0
 
 dc start proxy > /dev/null
 load_fixture proxy
-wait_for 15 client_resolves || fail "baseline: client DNS does not work with the proxy up"
+wait_for 15 client_gets_fakeip || fail "baseline: client DNS does not go through sing-box with the proxy up"
 
 info "Stopping the proxy"
 dc stop proxy > /dev/null

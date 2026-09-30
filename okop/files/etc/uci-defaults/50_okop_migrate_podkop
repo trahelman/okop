@@ -26,10 +26,7 @@ for key in server noresolv cachesize; do
     uci -q delete "dhcp.@dnsmasq[0].podkop_$key"
 done
 
-if [ "$dnsmasq_backup_found" -eq 1 ]; then
-    uci set okop.settings.shutdown_correctly='0'
-    uci commit dhcp
-fi
+[ "$dnsmasq_backup_found" -eq 1 ] && uci commit dhcp
 
 uci commit okop
 logger -t "okop" "Configuration migrated from /etc/config/podkop"

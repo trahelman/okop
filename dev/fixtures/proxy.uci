@@ -17,7 +17,6 @@ config settings 'settings'
 	option cache_path '/tmp/sing-box/cache.db'
 	option log_level 'info'
 	option exclude_ntp '0'
-	option shutdown_correctly '1'
 
 config section 'main'
 	option connection_type 'proxy'

@@ -177,18 +177,23 @@ stop_main() {
 }
 
 start() {
-    start_main
-
+    local dont_touch_dhcp
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_configure
+        # After a reboot or a crash dnsmasq may still point to sing-box that is not running yet
+        dnsmasq_restore
     fi
 
-    uci_set "okop" "settings" "shutdown_correctly" 0
-    uci commit "okop" && config_load "$OKOP_CONFIG"
+    start_main
+
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dns_guard_start
+    fi
 }
 
 stop() {
+    dns_guard_stop
+
     local dont_touch_dhcp
     config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
     if [ "$dont_touch_dhcp" -eq 0 ]; then
@@ -196,9 +201,6 @@ stop() {
     fi
 
     stop_main
-
-    uci_set "okop" "settings" "shutdown_correctly" 1
-    uci commit "okop" && config_load "$OKOP_CONFIG"
 }
 
 reload() {
@@ -347,11 +349,18 @@ backup_dnsmasq_config_option() {
     fi
 }
 
+dnsmasq_uses_sing_box() {
+    local server
+    for server in $(uci_get "dhcp" "@dnsmasq[0]" "server"); do
+        [ "$server" = "$SB_DNS_INBOUND_ADDRESS" ] && return 0
+    done
+
+    return 1
+}
+
 dnsmasq_configure() {
-    local shutdown_correctly
-    config_get shutdown_correctly "settings" "shutdown_correctly"
-    if [ "$shutdown_correctly" -eq 0 ]; then
-        log "Previous shutdown of okop was not correct, reconfiguration of dnsmasq is not required"
+    if dnsmasq_uses_sing_box; then
+        log "dnsmasq already uses sing-box, reconfiguration of dnsmasq is not required" "debug"
         return 0
     fi
 
@@ -379,13 +388,12 @@ dnsmasq_configure() {
 }
 
 dnsmasq_restore() {
-    log "Restoring the dnsmasq configuration"
-    local shutdown_correctly
-    config_get shutdown_correctly "settings" "shutdown_correctly"
-    if [ "$shutdown_correctly" -eq 1 ]; then
-        log "Previous shutdown of okop was correct, reconfiguration of dnsmasq is not required"
+    if ! dnsmasq_uses_sing_box; then
+        log "dnsmasq does not use sing-box, restoring of dnsmasq is not required" "debug"
         return 0
     fi
+
+    log "Restoring the dnsmasq configuration"
 
     local cachesize noresolv backup_servers resolvfile
     log "Restoring cachesize" "debug"
@@ -430,6 +438,52 @@ dnsmasq_restore() {
     uci_commit "dhcp"
 
     /etc/init.d/dnsmasq restart
+}
+
+# sing-box answers the fakeip test domain by itself, so the check does not depend on internet access
+sing_box_dns_available() {
+    dig +short +time=1 +tries=1 @"$SB_DNS_INBOUND_ADDRESS" "$FAKEIP_TEST_DOMAIN" A 2> /dev/null |
+        grep -qE '^[0-9]+(\.[0-9]+){3}$'
+}
+
+# Keeps LAN DNS working: dnsmasq uses sing-box only while sing-box answers DNS queries
+dns_guard() {
+    local failures=0
+
+    while true; do
+        if sing_box_dns_available; then
+            failures=0
+            if ! dnsmasq_uses_sing_box; then
+                log "sing-box DNS is available, switching dnsmasq to sing-box"
+                dnsmasq_configure
+            fi
+        else
+            failures=$((failures + 1))
+            if [ "$failures" -ge "$DNS_GUARD_MAX_FAILURES" ] && dnsmasq_uses_sing_box; then
+                log "sing-box DNS is unavailable, switching dnsmasq back to the upstream DNS servers" "error"
+                dnsmasq_restore
+            fi
+        fi
+
+        sleep "$DNS_GUARD_INTERVAL"
+    done
+}
+
+dns_guard_start() {
+    dns_guard_stop
+
+    dns_guard &
+    echo $! > "$DNS_GUARD_PID_FILE"
+    log "Started DNS guard" "debug"
+}
+
+dns_guard_stop() {
+    [ -f "$DNS_GUARD_PID_FILE" ] || return 0
+
+    local pid
+    pid="$(cat "$DNS_GUARD_PID_FILE")"
+    kill "$pid" 2> /dev/null && log "Stopped DNS guard" "debug"
+    rm -f "$DNS_GUARD_PID_FILE"
 }
 
 add_cron_job() {

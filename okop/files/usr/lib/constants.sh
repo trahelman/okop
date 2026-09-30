@@ -13,6 +13,10 @@ CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampeteli
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"
 RT_TABLE_NAME="okop"
+# DNS guard switches dnsmasq back to upstream servers after this many failed checks of sing-box DNS
+DNS_GUARD_INTERVAL=5
+DNS_GUARD_MAX_FAILURES=3
+DNS_GUARD_PID_FILE="/var/run/okop_dns_guard.pid"
 
 ## nft
 NFT_TABLE_NAME="OkopTable"

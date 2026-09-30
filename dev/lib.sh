@@ -94,6 +94,12 @@ client_resolves() {
     on_client dig +short +time=2 +tries=1 "@$ROUTER_LAN_IP" "$domain" A | grep -qE '^[0-9]+(\.[0-9]+){3}$'
 }
 
+# Domains from the routed lists resolve to fake IPs (198.18.0.0/15) only when DNS goes through sing-box
+client_gets_fakeip() {
+    local domain="${1:-youtube.com}"
+    on_client dig +short +time=2 +tries=1 "@$ROUTER_LAN_IP" "$domain" A | grep -qE '^198\.1[89]\.'
+}
+
 client_fetches() {
     local url="${1:-https://openwrt.org}"
     on_client curl -sS -o /dev/null -m 10 "$url"
