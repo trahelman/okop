@@ -66,6 +66,15 @@ commit firewall
 EOF
 }
 
+set_luci_language() {
+    local lang
+    lang="$(env_get DEV_LUCI_LANG)"
+    [ -n "$lang" ] || return 0
+
+    uci set luci.main.lang="$lang"
+    uci commit luci
+}
+
 load_initial_fixture() {
     local fixture
     fixture="$(env_get DEV_FIXTURE)"
@@ -94,6 +103,7 @@ start() {
     write_network_config "$lan_dev" "$wan_dev" "$lan_ip" "$wan_ip" "$wan_gw"
     allow_luci_from_wan
     load_initial_fixture
+    set_luci_language
 
     # Docker bind-mounts its own resolv.conf, point the router to the local dnsmasq like on real OpenWrt
     printf 'search lan\nnameserver 127.0.0.1\n' > /etc/resolv.conf
