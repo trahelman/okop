@@ -1,0 +1,103 @@
+# Установка
+
+## Требования
+
+- OpenWrt 24.10 (пакеты `.ipk`, менеджер `opkg`) или 25.12 (пакеты `.apk`, менеджер `apk`). Проверяется на стандартной OpenWrt; на сборках с изменёнными настройками сети или firewall возможны проблемы, см. [faq.md](faq.md#сторонние-прошивки).
+- Не меньше 25 МБ свободного места: большую часть занимает sing-box. Устройства с флешем 16 МБ не подходят.
+- sing-box 1.12.4 или новее. Ставится как зависимость; если установлена более старая версия, установочный скрипт её обновит.
+- Пакеты Okop написаны на shell и JavaScript, поэтому одни и те же файлы подходят для любой архитектуры роутера.
+
+Несовместимые пакеты, которые тоже меняют DNS или маршрутизацию:
+
+- `https-dns-proxy` — установочный скрипт предложит его удалить. Вручную:
+  ```
+  opkg remove --force-depends luci-app-https-dns-proxy https-dns-proxy luci-i18n-https-dns-proxy*
+  ```
+- `nextdns`, `luci-app-passwall`, `luci-app-passwall2` — пакет Okop с ними не установится.
+- Скрипт Getdomains — удалите его [скриптом удаления](https://github.com/itdoginfo/domain-routing-openwrt?tab=readme-ov-file#скрипт-для-удаления). Туннели и зоны firewall он сохраняет.
+- Podkop — см. [переход с Podkop](#переход-с-podkop).
+
+## Установка скриптом
+
+```
+sh <(wget -O - https://raw.githubusercontent.com/trahelman/okop/refs/heads/main/install.sh)
+```
+
+Скрипт:
+
+1. проверяет версию OpenWrt, свободное место и работу DNS;
+2. предлагает удалить конфликтующие пакеты;
+3. обновляет sing-box, если он старее 1.12.4;
+4. скачивает пакеты последнего релиза с GitHub и устанавливает их;
+5. спрашивает, ставить ли русский язык интерфейса.
+
+Тот же скрипт обновляет уже установленный Okop.
+
+## Установка вручную
+
+Скачайте пакеты со [страницы релизов](https://github.com/trahelman/okop/releases): `okop`, `luci-app-okop` и при желании `luci-i18n-okop-ru`. Скопируйте их на роутер, например в `/tmp`, и установите по порядку — сначала `okop`:
+
+OpenWrt 24.10:
+```
+opkg update
+opkg install /tmp/okop-*.ipk
+opkg install /tmp/luci-app-okop-*.ipk
+opkg install /tmp/luci-i18n-okop-ru-*.ipk
+```
+
+OpenWrt 25.12 (пакеты релиза не подписаны ключом OpenWrt, поэтому нужен `--allow-untrusted`; через загрузку в LuCI они не установятся):
+```
+apk update
+apk add --allow-untrusted /tmp/okop-*.apk
+apk add --allow-untrusted /tmp/luci-app-okop-*.apk
+apk add --allow-untrusted /tmp/luci-i18n-okop-ru-*.apk
+```
+
+## Первая настройка
+
+1. Откройте **Службы → Okop**.
+2. На вкладке **Секции** в секции `main` выберите тип подключения и укажите сервер: ссылку на прокси или интерфейс VPN. Выберите списки: community-списки или свои домены. Подробности — в [sections.md](sections.md).
+3. Нажмите **Сохранить и применить**.
+4. На вкладке **Диагностика** запустите проверку. Всё должно быть зелёным, см. [troubleshooting.md](troubleshooting.md).
+
+После каждого обновления очищайте кэш браузера для страниц LuCI (или откройте LuCI в режиме инкогнито): иначе браузер может показывать старый интерфейс, который не совпадает с новой версией.
+
+## Переход с Podkop
+
+Установочный скрипт находит установленный Podkop и после подтверждения:
+
+1. сохраняет копию его настроек в `/etc/podkop.bak`;
+2. останавливает и удаляет пакеты Podkop — при этом Podkop возвращает dnsmasq к исходным настройкам;
+3. устанавливает Okop, который при первом запуске переносит `/etc/config/podkop` в `/etc/config/okop`.
+
+Если Podkop ещё запущен и dnsmasq настроен на sing-box, Okop заберёт и сохранённые Podkop настройки dnsmasq, чтобы потом корректно их восстановить.
+
+При ручной установке сначала удалите Podkop (`opkg remove luci-i18n-podkop-ru luci-app-podkop podkop`), не удаляя `/etc/config/podkop`, затем поставьте Okop — перенос сработает так же.
+
+## Удаление
+
+OpenWrt 24.10:
+```
+opkg remove luci-i18n-okop-ru luci-app-okop okop
+```
+
+OpenWrt 25.12:
+```
+apk del luci-i18n-okop-ru luci-app-okop okop
+```
+
+Перед удалением Okop останавливается и возвращает dnsmasq к исходным настройкам. Скачанные списки остаются в `/etc/okop/rulesets` — удалите каталог вручную, если он больше не нужен.
+
+## Обновление OpenWrt
+
+Перед обновлением прошивки остановите Okop (**Службы → Okop → Диагностика → Остановить** или `service okop stop`), чтобы dnsmasq вернулся к обычным DNS-серверам. После обновления установите Okop заново — при сохранённых настройках конфиг останется на месте.
+
+Если прошивку обновили без остановки и на роутере не работает DNS:
+```
+uci -q delete dhcp.@dnsmasq[0].server
+uci add_list dhcp.@dnsmasq[0].server="8.8.8.8"
+uci set dhcp.@dnsmasq[0].noresolv="1"
+uci commit dhcp
+service dnsmasq restart
+```
+Затем установите Okop.

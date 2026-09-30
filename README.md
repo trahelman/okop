@@ -31,6 +31,10 @@ Okop — форк проекта [Podkop](https://github.com/itdoginfo/podkop) �
 ### Поддержка
 - При возникновении проблем создавайте [GitHub Issues](https://github.com/trahelman/okop/issues).
 
+# Документация
+
+Установка, настройка и решение проблем описаны в [docs](docs/README.md).
+
 # Установка
 
 Для установки и обновления достаточно выполнить один скрипт:
