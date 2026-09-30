@@ -138,21 +138,20 @@ start_main() {
     /etc/init.d/sing-box start
 
     log "Nice"
-    list_update &
+    # Detached from the caller's stdin/stdout, otherwise "okop reload" over SSH waits for list_update to finish.
+    # Messages still go to the system log.
+    run_detached list_update
     echo $! > /var/run/okop_list_update.pid
 }
 
 stop_main() {
     log "Stopping the okop"
 
-    if [ -f /var/run/okop_list_update.pid ]; then
-        pid=$(cat /var/run/okop_list_update.pid)
-        if kill -0 "$pid" 2> /dev/null; then
-            kill "$pid" 2> /dev/null
-            log "Stopped list_update"
-        fi
-        rm -f /var/run/okop_list_update.pid
+    if okop_background_job_running /var/run/okop_list_update.pid; then
+        kill "$(cat /var/run/okop_list_update.pid)" 2> /dev/null
+        log "Stopped list_update"
     fi
+    rm -f /var/run/okop_list_update.pid
 
     remove_cron_job
 
@@ -475,6 +474,29 @@ dnsmasq_restore() {
     /etc/init.d/dnsmasq restart
 }
 
+# Runs a function in the background without holding the caller's stdin, stdout and stderr.
+# "func > /dev/null &" is not enough: ash keeps copies of the original descriptors (fd 10+) to restore them
+# after the redirection, and the background process inherits them. exec replaces the descriptors instead.
+run_detached() {
+    (
+        exec < /dev/null > /dev/null 2>&1
+        "$@"
+    ) &
+}
+
+# A pid file may outlive its process (e.g. after a crash) and the pid may be reused by another process,
+# so check that the pid still belongs to okop before killing it
+okop_background_job_running() {
+    local pid_file="$1"
+
+    [ -f "$pid_file" ] || return 1
+
+    local pid
+    pid="$(cat "$pid_file")"
+    [ -n "$pid" ] && [ -r "/proc/$pid/cmdline" ] || return 1
+    tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "/usr/bin/okop"
+}
+
 # sing-box answers the fakeip test domain by itself, so the check does not depend on internet access
 sing_box_dns_available() {
     dig +short +time=1 +tries=1 @"$SB_DNS_INBOUND_ADDRESS" "$FAKEIP_TEST_DOMAIN" A 2> /dev/null |
@@ -512,13 +534,17 @@ dns_guard() {
 dns_guard_start() {
     dns_guard_stop
 
-    dns_guard &
+    # Detached from the caller's stdin/stdout like list_update: the guard runs until okop stops
+    run_detached dns_guard
     echo $! > "$DNS_GUARD_PID_FILE"
     log "Started DNS guard" "debug"
 }
 
 dns_guard_stop() {
-    [ -f "$DNS_GUARD_PID_FILE" ] || return 0
+    if ! okop_background_job_running "$DNS_GUARD_PID_FILE"; then
+        rm -f "$DNS_GUARD_PID_FILE"
+        return 0
+    fi
 
     local pid i
     pid="$(cat "$DNS_GUARD_PID_FILE")"
@@ -840,8 +866,8 @@ configure_outbound_handler() {
 
         config_get interface_name "$section" "interface"
         config_get domain_resolver_enabled "$section" "domain_resolver_enabled"
-        config_get domain_resolver_dns_type "$section" "domain_resolver_dns_type"
-        config_get domain_resolver_dns_server "$section" "domain_resolver_dns_server"
+        config_get domain_resolver_dns_type "$section" "domain_resolver_dns_type" "udp"
+        config_get domain_resolver_dns_server "$section" "domain_resolver_dns_server" "8.8.8.8"
 
         if [ -z "$interface_name" ]; then
             log "VPN interface is not set. Aborted." "fatal"
