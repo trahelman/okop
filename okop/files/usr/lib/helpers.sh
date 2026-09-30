@@ -254,6 +254,8 @@ migration_rename_config_key() {
 }
 
 # Download URL to file
+# curl is used instead of wget: uclient-fetch fails on HTTPS through an HTTP proxy when the server redirects,
+# which GitHub release downloads do
 download_to_file() {
     local url="$1"
     local filepath="$2"
@@ -261,15 +263,20 @@ download_to_file() {
     local retries="${4:-3}"
     local wait="${5:-2}"
 
-    local attempt
+    local attempt direct_fallback
+    config_get_bool direct_fallback "settings" "download_lists_direct_fallback" 0
     for attempt in $(seq 1 "$retries"); do
         if [ -n "$http_proxy_address" ]; then
-            http_proxy="http://$http_proxy_address" https_proxy="http://$http_proxy_address" \
-                wget -T 30 -O "$filepath" "$url" && return 0
-            log "Attempt $attempt/$retries to download $url through the proxy failed, trying directly" "warn"
-        fi
+            curl -fsSL --connect-timeout 15 --max-time 120 -x "http://$http_proxy_address" -o "$filepath" "$url" &&
+                return 0
 
-        wget -T 30 -O "$filepath" "$url" && return 0
+            if [ "$direct_fallback" -eq 1 ]; then
+                log "Attempt $attempt/$retries to download $url through the proxy failed, trying directly" "warn"
+                curl -fsSL --connect-timeout 15 --max-time 120 -o "$filepath" "$url" && return 0
+            fi
+        else
+            curl -fsSL --connect-timeout 15 --max-time 120 -o "$filepath" "$url" && return 0
+        fi
 
         log "Attempt $attempt/$retries to download $url failed" "warn"
         sleep "$wait"

@@ -322,6 +322,18 @@ function createSettingsContent(section) {
 
   o = section.option(
     form.Flag,
+    "download_lists_direct_fallback",
+    _("Download Lists Directly if Proxy/VPN Fails"),
+    _(
+      "If lists cannot be downloaded via the selected Proxy/VPN, download them without it",
+    ),
+  );
+  o.default = "0";
+  o.rmempty = false;
+  o.depends("download_lists_via_proxy", "1");
+
+  o = section.option(
+    form.Flag,
     "dont_touch_dhcp",
     _("Dont Touch My DHCP!"),
     _("Okop will not modify your DHCP configuration"),

@@ -612,9 +612,10 @@ list_update() {
         return 1
     fi
 
-    # Github Check, lists are downloaded directly when the proxy does not work
-    local service_proxy_address
+    # Github Check
+    local service_proxy_address direct_fallback
     service_proxy_address="$(get_service_proxy_address)"
+    config_get_bool direct_fallback "settings" "download_lists_direct_fallback" 0
     for i in $(seq 1 $curl_attempts); do
         if [ -n "$service_proxy_address" ] &&
             curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
@@ -622,7 +623,9 @@ list_update() {
             break
         fi
 
-        if curl -s -m $curl_timeout https://github.com > /dev/null; then
+        # Lists are downloaded directly only without a proxy or when the direct fallback is allowed
+        if { [ -z "$service_proxy_address" ] || [ "$direct_fallback" -eq 1 ]; } &&
+            curl -s -m $curl_timeout https://github.com > /dev/null; then
             echolog "✅ GitHub connection check passed"
             break
         fi
