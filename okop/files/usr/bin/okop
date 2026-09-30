@@ -263,8 +263,10 @@ process_validate_service() {
     fi
 }
 
+# Bridge netfilter sends bridged traffic through nftables and breaks tproxy. The sysctl is checked instead of
+# lsmod: br_netfilter can be built into the kernel, then lsmod does not list it
 br_netfilter_disable() {
-    if lsmod | grep -q br_netfilter && [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2> /dev/null)" = "1" ]; then
+    if [ "$(sysctl -n net.bridge.bridge-nf-call-iptables 2> /dev/null)" = "1" ]; then
         log "br_netfilter enabled detected. Disabling"
         sysctl -w net.bridge.bridge-nf-call-iptables=0
         sysctl -w net.bridge.bridge-nf-call-ip6tables=0
