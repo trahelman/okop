@@ -556,9 +556,22 @@ dnsmasq_restore() {
 # Runs a function in the background without holding the caller's stdin, stdout and stderr.
 # "func > /dev/null &" is not enough: ash keeps copies of the original descriptors (fd 10+) to restore them
 # after the redirection, and the background process inherits them. exec replaces the descriptors instead.
+# Other inherited descriptors are closed too: under "service okop reload" rc.common holds procd's lock on
+# fd 1000, and a guard keeping it would make every later init.d action (stop, restart, disable, opkg
+# remove) wait for it forever.
 run_detached() {
     (
         exec < /dev/null > /dev/null 2>&1
+
+        local fd_path fd
+        for fd_path in /proc/self/fd/*; do
+            fd="${fd_path##*/}"
+            case "$fd" in
+            0 | 1 | 2 | *[!0-9]*) ;;
+            *) eval "exec $fd>&-" 2> /dev/null ;;
+            esac
+        done
+
         "$@"
     ) &
 }
