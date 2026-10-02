@@ -1,4 +1,5 @@
 import { ValidationResult } from './types';
+import { parseQueryString } from '../helpers/parseQueryString';
 
 export function validateTrojanUrl(url: string): ValidationResult {
   try {
@@ -18,7 +19,7 @@ export function validateTrojanUrl(url: string): ValidationResult {
 
     const body = url.slice('trojan://'.length);
     const [mainPart] = body.split('#');
-    const [userHostPort] = mainPart.split('?');
+    const [userHostPort, queryString] = mainPart.split('?');
 
     const [userPart, hostPortPart] = userHostPort.split('@');
 
@@ -51,6 +52,15 @@ export function validateTrojanUrl(url: string): ValidationResult {
       return {
         valid: false,
         message: 'Invalid Trojan URL: invalid port number',
+      };
+
+    // Transports sing-box has and okop builds, mKCP and XHTTP exist only in Xray
+    const params = parseQueryString(queryString ?? '');
+    const validTypes = ['tcp', 'raw', 'grpc', 'httpupgrade', 'ws'];
+    if (params.type && !validTypes.includes(params.type))
+      return {
+        valid: false,
+        message: 'Invalid Trojan URL: unsupported type',
       };
   } catch (_e) {
     return { valid: false, message: _('Invalid Trojan URL: parsing failed') };

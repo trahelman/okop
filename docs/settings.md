@@ -32,7 +32,7 @@
 
 ## DHCP
 
-- **Не трогать мой DHCP!** (`dont_touch_dhcp`): Okop не будет переключать dnsmasq на sing-box. Тогда направить DNS в sing-box (`127.0.0.42`) нужно самостоятельно, а [защита DNS](how-it-works.md#защита-dns) не работает. Включайте, если DNS в сети устроен нестандартно, например через AdGuard Home.
+- **Не трогать мой DHCP!** (`dont_touch_dhcp`): Okop не будет переключать dnsmasq на sing-box. Тогда направить DNS в sing-box (`127.0.0.42`) нужно самостоятельно, а [защита DNS](how-it-works.md#защита-dns) не переключает dnsmasq. Включайте, если DNS в сети устроен нестандартно, например через AdGuard Home.
 
 ## Dashboard (YACD)
 

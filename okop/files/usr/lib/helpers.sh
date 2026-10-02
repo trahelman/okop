@@ -188,8 +188,9 @@ url_get_query_param() {
 }
 
 # Extracts the basename (filename without extension) from a URL
+# The query string and the fragment are not part of the file name: GitHub links often end in ?raw=true
 url_get_basename() {
-    local url="$1"
+    local url="${1%%[?#]*}"
 
     local filename="${url##*/}"
     local basename="${filename%%.*}"
@@ -198,12 +199,14 @@ url_get_basename() {
 }
 
 # Extracts and returns the file extension from the given URL
+# Lowercase, without the query string and the fragment: list.SRS and list.srs?raw=true are rule sets,
+# not plain-text lists
 url_get_file_extension() {
-    local url="$1"
+    local url="${1%%[?#]*}"
 
     local basename="${url##*/}"
     case "$basename" in
-    *.*) echo "${basename##*.}" ;;
+    *.*) echo "${basename##*.}" | tr 'A-Z' 'a-z' ;;
     *) echo "" ;;
     esac
 }
@@ -216,13 +219,20 @@ url_strip_fragment() {
 }
 
 # Decodes and returns a base64-encoded string
+# Decodes base64, also in the URL-safe alphabet and without padding: SIP002 shadowsocks links use
+# base64url, and BusyBox/coreutils base64 stop at "-" or "_", which silently cut the password short.
+# Returns non-zero when the input cannot be decoded.
 base64_decode() {
     local str="$1"
-    local decoded_url
 
-    decoded_url="$(echo "$str" | base64 -d 2> /dev/null)"
+    str="$(printf '%s' "$str" | tr -- '-_' '+/')"
+    case $((${#str} % 4)) in
+    2) str="$str==" ;;
+    3) str="$str=" ;;
+    1) return 1 ;;
+    esac
 
-    echo "$decoded_url"
+    printf '%s' "$str" | base64 -d 2> /dev/null
 }
 
 # Generates a unique 16-character ID based on the current timestamp and a random number
@@ -304,74 +314,4 @@ convert_crlf_to_lf() {
         tmpfile=$(mktemp)
         tr -d '\r' < "$filepath" > "$tmpfile" && mv "$tmpfile" "$filepath" || rm -f "$tmpfile"
     fi
-}
-
-#######################################
-# Parses a whitespace-separated string, validates items as either domains
-# or IPv4 addresses/subnets, and returns a comma-separated string of valid items.
-# Arguments:
-#   $1 - Input string (space-separated list of items)
-#   $2 - Type of validation ("domains" or "subnets")
-# Outputs:
-#   Comma-separated string of valid domains or subnets
-#######################################
-parse_domain_or_subnet_string_to_commas_string() {
-    local string="$1"
-    local type="$2"
-
-    tmpfile=$(mktemp)
-    printf "%s\n" "$string" | sed 's/\/\/.*//' | tr ', ' '\n' | grep -v '^$' > "$tmpfile"
-
-    result="$(parse_domain_or_subnet_file_to_comma_string "$tmpfile" "$type")"
-    rm -f "$tmpfile"
-
-    echo "$result"
-}
-
-#######################################
-# Parses a file line by line, validates entries as either domains or subnets,
-# and returns a single comma-separated string of valid items.
-# Arguments:
-#   $1 - Path to the input file
-#   $2 - Type of validation ("domains" or "subnets")
-# Outputs:
-#   Comma-separated string of valid domains or subnets
-#######################################
-parse_domain_or_subnet_file_to_comma_string() {
-    local filepath="$1"
-    local type="$2"
-
-    local result
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        [ -z "$line" ] && continue
-
-        case "$type" in
-        domains)
-            if ! is_domain_suffix "$line"; then
-                log "'$line' is not a valid domain" "debug"
-                continue
-            fi
-            ;;
-        subnets)
-            if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-                log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-                continue
-            fi
-            ;;
-        *)
-            log "Unknown type: $type" "error"
-            return 1
-            ;;
-        esac
-
-        if [ -z "$result" ]; then
-            result="$line"
-        else
-            result="$result,$line"
-        fi
-    done < "$filepath"
-
-    echo "$result"
 }

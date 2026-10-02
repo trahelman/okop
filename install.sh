@@ -50,6 +50,16 @@ pkg_list_update() {
     fi
 }
 
+pkg_upgrade() {
+    local pkg_name="$1"
+
+    if [ "$PKG_IS_APK" -eq 1 ]; then
+        apk add --upgrade "$pkg_name"
+    else
+        opkg upgrade "$pkg_name"
+    fi
+}
+
 pkg_install() {
     local pkg_file="$1"
 
@@ -104,11 +114,12 @@ remove_podkop() {
 
 main() {
     check_system
-    sing_box
 
     /usr/sbin/ntpd -q -p 194.190.168.1 -p 216.239.35.0 -p 216.239.35.4 -p 162.159.200.1 -p 162.159.200.123
 
     pkg_list_update || { echo "Packages list update failed"; exit 1; }
+
+    sing_box
 
     if [ -f "/etc/init.d/okop" ]; then
         msg "Okop is already installed. Upgrading..."
@@ -155,9 +166,9 @@ main() {
         fi
     done
 
-    # Check if any files were downloaded
-    if ! ls "$DOWNLOAD_DIR"/*okop* >/dev/null 2>&1; then
-        msg "No packages were downloaded successfully"
+    # Both packages are needed: Podkop is removed next, a half-downloaded release would leave nothing
+    if ! ls "$DOWNLOAD_DIR"/okop[_-]* > /dev/null 2>&1 || ! ls "$DOWNLOAD_DIR"/luci-app-okop* > /dev/null 2>&1; then
+        msg "Packages were not downloaded, nothing was changed"
         exit 1
     fi
 
@@ -175,7 +186,11 @@ main() {
         done
         if [ -n "$file" ]; then
             msg "Installing $file..."
-            pkg_install "$DOWNLOAD_DIR/$file"
+            if ! pkg_install "$DOWNLOAD_DIR/$file"; then
+                msg "Failed to install $file, see the messages above"
+                [ -f "$PODKOP_CONFIG_BACKUP" ] && msg "The Podkop configuration is saved in $PODKOP_CONFIG_BACKUP"
+                exit 1
+            fi
             sleep 3
         fi
     done
@@ -189,16 +204,14 @@ main() {
     done
     if [ -n "$ru" ]; then
         if pkg_is_installed luci-i18n-okop-ru; then
-                msg "Upgrading Russian translation..."
-                pkg_remove luci-i18n-okop*
-                pkg_install "$DOWNLOAD_DIR/$ru"
+            msg "Upgrading Russian translation..."
+            pkg_install "$DOWNLOAD_DIR/$ru"
         else
             msg "Русский язык интерфейса ставим? y/n (Install the Russian interface language?)"
             while true; do
                 read -r -p '' RUS
                 case $RUS in
                 y)
-                    pkg_remove luci-i18n-okop*
                     pkg_install "$DOWNLOAD_DIR/$ru"
                     break
                     ;;
@@ -280,9 +293,14 @@ sing_box() {
 
     if [ "$(printf '%s\n%s\n' "$sing_box_version" "$required_version" | sort -V | head -n 1)" != "$required_version" ]; then
         msg "sing-box version $sing_box_version is older than the required version $required_version."
-        msg "Removing old version..."
-        service okop stop
-        pkg_remove sing-box
+        # Upgraded, not removed: apk refuses to remove a package okop depends on
+        msg "Upgrading sing-box..."
+        [ -x /etc/init.d/okop ] && /etc/init.d/okop stop
+        if ! pkg_upgrade sing-box; then
+            msg "Failed to upgrade sing-box, see the messages above"
+            [ -x /etc/init.d/okop ] && /etc/init.d/okop enabled && /etc/init.d/okop start
+            exit 1
+        fi
     fi
 }
 

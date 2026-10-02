@@ -134,6 +134,15 @@ dns_guard_running() {
     on_router test -f /var/run/okop_dns_guard.pid
 }
 
+# Prints the sing-box outbound okop builds for a proxy link, without restarting okop
+outbound_for_link() {
+    on_router sh -c '
+        . /usr/lib/okop/constants.sh
+        . /usr/lib/okop/logging.sh
+        . /usr/lib/okop/sing_box_config_facade.sh
+        sing_box_cf_add_proxy_outbound "{\"outbounds\":[]}" main "$1" 0 | jq -c ".outbounds[0]"' sh "$1"
+}
+
 singbox_running() {
     on_router pidof sing-box > /dev/null
 }

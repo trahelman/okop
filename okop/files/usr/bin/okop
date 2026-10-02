@@ -107,6 +107,15 @@ has_outbound_section() {
     return $section_exists
 }
 
+# start, stop, reload and restart run one at a time, in the order they arrive. Without this a stop arriving
+# while a start was still running (LuCI buttons, Save & Apply twice, interface monitoring at boot) cleaned
+# up first, and the start then installed everything again behind it. Released when the process exits;
+# background jobs do not keep it, run_detached closes inherited descriptors.
+okop_lock() {
+    exec 9> "$OKOP_LOCK_FILE"
+    flock 9
+}
+
 start_main() {
     log "Starting okop"
 
@@ -115,6 +124,7 @@ start_main() {
     migration
 
     config_foreach process_validate_service "section"
+    config_foreach check_section_name "section"
 
     br_netfilter_disable
 
@@ -131,6 +141,8 @@ start_main() {
     # Every "exit" from here until sing-box is started leaves the interception without sing-box behind it.
     # Exits inside $(...) do not run the trap, the subshell resets it.
     trap start_rollback EXIT
+    # procd stops a start that is still running with TERM, which would skip the EXIT trap
+    trap 'exit 143' TERM INT
 
     # base
     route_table_rule_mark
@@ -142,13 +154,36 @@ start_main() {
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
-    trap - EXIT
+    # "sing-box check" does not bind ports, so a config can pass it and still fail when sing-box runs
+    # (e.g. a mixed proxy port already in use). The rollback stays armed until sing-box really serves.
+    if ! wait_for_sing_box; then
+        log "sing-box did not start, see \"logread -e sing-box\". Aborted." "fatal"
+        exit 1
+    fi
+
+    trap - EXIT TERM INT
 
     log "Nice"
     # Detached from the caller's stdin/stdout, otherwise "okop reload" over SSH waits for list_update to finish.
     # Messages still go to the system log.
-    run_detached list_update
+    run_detached lists_job
     echo $! > /var/run/okop_list_update.pid
+}
+
+# Waits until sing-box answers DNS and keeps the same pid for a moment, i.e. it is not crash-looping:
+# procd respawns a sing-box that exits, and a fresh process may answer briefly before it fails again.
+wait_for_sing_box() {
+    local i pid
+    for i in $(seq 1 "$SING_BOX_START_TIMEOUT"); do
+        if sing_box_dns_available; then
+            pid="$(pidof sing-box)"
+            sleep 2
+            [ -n "$pid" ] && [ "$(pidof sing-box)" = "$pid" ] && sing_box_dns_available && return 0
+        fi
+        sleep 1
+    done
+
+    return 1
 }
 
 # A start that fails after the nft rules are in place is worse than okop not running at all: packets
@@ -158,13 +193,14 @@ start_main() {
 start_rollback() {
     log "Start failed, removing the traffic interception" "error"
 
+    # It may be crash-looping on a config it cannot run
+    /etc/init.d/sing-box stop 2> /dev/null
+
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         nft delete table inet "$NFT_TABLE_NAME"
     fi
 
-    if ip rule list | grep -q "$RT_TABLE_NAME"; then
-        ip rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2> /dev/null
-    fi
+    delete_mark_rules
 
     dnsmasq_restore
 }
@@ -188,6 +224,13 @@ stop_list_update() {
         log "Stopped list_update"
     fi
     rm -f /var/run/okop_list_update.pid
+
+    # An update started by cron
+    if okop_background_job_running "$LIST_UPDATE_LOCK/pid"; then
+        kill "$(cat "$LIST_UPDATE_LOCK/pid")" 2> /dev/null
+        log "Stopped a running lists update"
+    fi
+    list_update_unlock
 }
 
 stop_main() {
@@ -205,9 +248,7 @@ stop_main() {
     fi
 
     log "Flush ip rule"
-    if ip rule list | grep -q "okop"; then
-        ip rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
-    fi
+    delete_mark_rules
 
     log "Flush ip route"
     if ip route list table "$RT_TABLE_NAME" > /dev/null 2>&1; then
@@ -216,20 +257,6 @@ stop_main() {
 
     log "Stop sing-box"
     /etc/init.d/sing-box stop
-}
-
-# dont_touch_dhcp says "do not switch dnsmasq to sing-box", so only switching obeys it.
-# dnsmasq_restore must never be skipped: it is the only code that puts the user's DNS settings back,
-# and it already does nothing when dnsmasq does not point at sing-box.
-dns_guard_start_if_allowed() {
-    local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dns_guard_start
-    else
-        log "dont_touch_dhcp is enabled, dnsmasq is left alone" "debug"
-    fi
 }
 
 start() {
@@ -241,7 +268,7 @@ start() {
 
     start_main
 
-    dns_guard_start_if_allowed
+    dns_guard_start
 }
 
 stop() {
@@ -264,7 +291,7 @@ reload() {
     stop_main
     start_main
 
-    dns_guard_start_if_allowed
+    dns_guard_start
 }
 
 restart() {
@@ -322,12 +349,21 @@ route_table_rule_mark() {
         log "Route for tproxy exists" "debug"
     fi
 
-    if ! ip rule list | grep -q "from all fwmark $NFT_FAKEIP_MARK/$NFT_FAKEIP_MARK lookup $RT_TABLE_NAME"; then
+    # ip prints the mark without leading zeros (0x100000), so the rule is looked up by its table: matched
+    # against "0x00100000" it was never found and every start without a stop added one more
+    if ! ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
         log "Create marking rule" "debug"
         ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
     else
         log "Marking rule exist" "debug"
     fi
+}
+
+# Deletes the marking rule, every copy of it
+delete_mark_rules() {
+    while ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2> /dev/null; do
+        :
+    done
 }
 
 nft_init_interfaces_set() {
@@ -366,6 +402,10 @@ create_nft_rules() {
     log "Create common set"
     nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
 
+    # Discord voice runs over UDP on these ports. Created once here: adding the rule on every list update
+    # piled up copies of it in the chain.
+    nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
+
     log "Create interface set"
     nft_init_interfaces_set
 
@@ -375,27 +415,36 @@ create_nft_rules() {
     nft add chain inet "$NFT_TABLE_NAME" proxy '{ type filter hook prerouting priority -100; policy accept; }'
 
     nft add rule inet "$NFT_TABLE_NAME" mangle ct status dnat return
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
-
-    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
-    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
-
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_LOCALV4_SET_NAME" return
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output meta mark "$NFT_OUTBOUND_MARK" counter return
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
-    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
 
     local exclude_ntp
     config_get_bool exclude_ntp "settings" "exclude_ntp" "0"
     if [ "$exclude_ntp" -eq 1 ]; then
         log "NTP traffic exclude for proxy"
-        nft insert rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
+        nft add rule inet "$NFT_TABLE_NAME" mangle udp dport 123 return
     fi
+
+    # Fully routed devices get their rules in a chain of their own, after the exclusions above: inserted
+    # at the top of mangle they took replies of port forwards and NTP into the proxy as well
+    nft add chain inet "$NFT_TABLE_NAME" "$NFT_FULLY_ROUTED_CHAIN_NAME"
+    nft add rule inet "$NFT_TABLE_NAME" mangle jump "$NFT_FULLY_ROUTED_CHAIN_NAME"
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_DISCORD_SET_NAME" \
+        udp dport '{ 19000-20000, 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
+
+    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
+    nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
+
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_LOCALV4_SET_NAME" return
+    # Packets of a tunnel interface with this firewall mark (docs/tunnels.md, WARP over WireGuard) are the
+    # tunnel's own encapsulated traffic: sending them into sing-box again would loop
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output meta mark "$NFT_OUTBOUND_MARK" counter return
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle_output ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
 }
 
 backup_dnsmasq_config_option() {
@@ -461,17 +510,27 @@ dnsmasq_configure() {
         return 0
     fi
 
-    log "Backup dnsmasq configuration"
     local servers server
     servers="$(uci_get "dhcp" "@dnsmasq[0]" "server")"
 
-    # The whole list is kept in its original order, so that it is restored exactly
-    uci_remove "dhcp" "@dnsmasq[0]" "okop_server" 2> /dev/null
-    for server in $servers; do
-        uci_add_list "dhcp" "@dnsmasq[0]" "okop_server" "$server"
-    done
-    backup_dnsmasq_config_option "noresolv" "okop_noresolv"
-    backup_dnsmasq_config_option "cachesize" "okop_cachesize"
+    if dnsmasq_switched_by_okop; then
+        # A backup of an earlier switch that was not restored, e.g. sing-box was removed from the servers
+        # by hand. It holds the user's settings, the current noresolv and cachesize are okop's own.
+        log "Keeping the backup of the dnsmasq configuration from an earlier start"
+        local backup_servers
+        backup_servers="$(uci_get "dhcp" "@dnsmasq[0]" "okop_server")"
+        for server in $servers; do
+            list_contains "$backup_servers" "$server" || uci_add_list "dhcp" "@dnsmasq[0]" "okop_server" "$server"
+        done
+    else
+        log "Backup dnsmasq configuration"
+        # The whole list is kept in its original order, so that it is restored exactly
+        for server in $servers; do
+            uci_add_list "dhcp" "@dnsmasq[0]" "okop_server" "$server"
+        done
+        backup_dnsmasq_config_option "noresolv" "okop_noresolv"
+        backup_dnsmasq_config_option "cachesize" "okop_cachesize"
+    fi
 
     log "Configure dnsmasq for sing-box"
     uci_remove "dhcp" "@dnsmasq[0]" "server"
@@ -483,14 +542,36 @@ dnsmasq_configure() {
     uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
     uci_set "dhcp" "@dnsmasq[0]" "noresolv" 1
     uci_set "dhcp" "@dnsmasq[0]" "cachesize" 0
+    uci_set "dhcp" "@dnsmasq[0]" "okop_switched" 1
     uci_commit "dhcp"
 
     /etc/init.d/dnsmasq restart
 }
 
+# Whether okop itself pointed dnsmasq at sing-box. The okop_* backups also count: versions before the
+# okop_switched marker left only them.
+dnsmasq_switched_by_okop() {
+    local key
+    for key in okop_switched okop_server okop_noresolv okop_cachesize; do
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "$key")" ] && return 0
+    done
+
+    return 1
+}
+
 dnsmasq_restore() {
-    if ! dnsmasq_uses_sing_box; then
+    # Also when sing-box was removed from the servers by hand: noresolv and cachesize are still okop's
+    if ! dnsmasq_uses_sing_box && ! dnsmasq_switched_by_okop; then
         log "dnsmasq does not use sing-box, restoring of dnsmasq is not required" "debug"
+        return 0
+    fi
+
+    # With dont_touch_dhcp the user may point dnsmasq at sing-box by hand (docs/dns.md). That setup is
+    # theirs: only a switch okop made itself, e.g. before the option was enabled, is undone.
+    local dont_touch_dhcp
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 1 ] && ! dnsmasq_switched_by_okop; then
+        log "dnsmasq was pointed at sing-box by hand, dont_touch_dhcp is enabled, leaving it as it is" "debug"
         return 0
     fi
 
@@ -501,6 +582,11 @@ dnsmasq_restore() {
 
     uci_remove "dhcp" "@dnsmasq[0]" "server"
     for server in $backup_servers; do
+        # Domain forwardings stay in place while dnsmasq uses sing-box, so the current list is the truth
+        # for them: one removed or edited in the meantime must not come back
+        if is_domain_specific_dnsmasq_server "$server" && ! list_contains "$current_servers" "$server"; then
+            continue
+        fi
         uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
     done
     # Keep servers added while dnsmasq was using sing-box
@@ -510,6 +596,7 @@ dnsmasq_restore() {
         uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
     done
     uci_remove "dhcp" "@dnsmasq[0]" "okop_server" 2> /dev/null
+    uci_remove "dhcp" "@dnsmasq[0]" "okop_switched" 2> /dev/null
 
     restore_dnsmasq_config_option "noresolv" "okop_noresolv"
     restore_dnsmasq_config_option "cachesize" "okop_cachesize"
@@ -534,9 +621,22 @@ dnsmasq_restore() {
 # Runs a function in the background without holding the caller's stdin, stdout and stderr.
 # "func > /dev/null &" is not enough: ash keeps copies of the original descriptors (fd 10+) to restore them
 # after the redirection, and the background process inherits them. exec replaces the descriptors instead.
+# Other inherited descriptors are closed too: under "service okop reload" rc.common holds procd's lock on
+# fd 1000, and a guard keeping it would make every later init.d action (stop, restart, disable, opkg
+# remove) wait for it forever.
 run_detached() {
     (
         exec < /dev/null > /dev/null 2>&1
+
+        local fd_path fd
+        for fd_path in /proc/self/fd/*; do
+            fd="${fd_path##*/}"
+            case "$fd" in
+            0 | 1 | 2 | *[!0-9]*) ;;
+            *) eval "exec $fd>&-" 2> /dev/null ;;
+            esac
+        done
+
         "$@"
     ) &
 }
@@ -571,10 +671,33 @@ sing_box_dns_resolves() {
         grep -qE '^[0-9]+(\.[0-9]+){3}$'
 }
 
-# Keeps LAN DNS working: dnsmasq uses sing-box only while sing-box both answers DNS queries and can
-# still resolve through its upstream server
+# Marked traffic is routed to sing-box only while sing-box is running. Without the rule the marked
+# packets take the main routing table, i.e. go out directly instead of into a dead tproxy port.
+interception_attach() {
+    if ! ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
+        log "sing-box is back, routing the lists through it again"
+        ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
+    fi
+}
+
+interception_detach() {
+    if ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
+        log "sing-box is down, traffic to the lists goes directly until it is back" "error"
+        delete_mark_rules
+    fi
+}
+
+# Keeps the LAN working while sing-box is down: traffic to the lists is not sent to it, and dnsmasq uses
+# sing-box only while sing-box both answers DNS queries and can still resolve through its upstream
+# server. dont_touch_dhcp says "do not switch dnsmasq to sing-box", so only switching obeys it;
+# dnsmasq_restore puts the user's settings back and does nothing when dnsmasq does not point at sing-box.
 dns_guard() {
-    local failures=0 unresolved=0 stopping=0
+    local failures=0 unresolved=0 stopping=0 successes manage_dnsmasq=1 dont_touch_dhcp
+    # start has just seen sing-box serving, one more answer is enough
+    successes=$((DNS_GUARD_MIN_SUCCESSES - 1))
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    [ "$dont_touch_dhcp" -eq 1 ] && manage_dnsmasq=0
 
     # Finish the current step on TERM, so that dnsmasq is never left half-configured
     trap 'stopping=1' TERM
@@ -582,6 +705,7 @@ dns_guard() {
     while [ "$stopping" -eq 0 ]; do
         if sing_box_dns_available; then
             failures=0
+            successes=$((successes + 1))
             if sing_box_dns_resolves; then
                 unresolved=0
             else
@@ -589,21 +713,27 @@ dns_guard() {
             fi
         else
             failures=$((failures + 1))
+            successes=0
             unresolved=0
         fi
 
         if [ "$failures" -ge "$DNS_GUARD_MAX_FAILURES" ]; then
-            if dnsmasq_uses_sing_box; then
+            interception_detach
+            if [ "$manage_dnsmasq" -eq 1 ] && dnsmasq_uses_sing_box; then
                 log "sing-box DNS is unavailable, switching dnsmasq back to the upstream DNS servers" "error"
                 dnsmasq_restore
             fi
-        elif [ "$unresolved" -ge "$DNS_GUARD_MAX_UNRESOLVED" ]; then
-            if dnsmasq_uses_sing_box; then
-                log "sing-box cannot resolve $DNS_PROBE_DOMAIN, its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
-                dnsmasq_restore
-            fi
-        elif [ "$failures" -eq 0 ] && [ "$unresolved" -eq 0 ]; then
-            if ! dnsmasq_uses_sing_box; then
+        elif [ "$successes" -ge "$DNS_GUARD_MIN_SUCCESSES" ]; then
+            # A sing-box that procd keeps respawning answers for a moment between crashes
+            interception_attach
+            if [ "$manage_dnsmasq" -eq 0 ]; then
+                :
+            elif [ "$unresolved" -ge "$DNS_GUARD_MAX_UNRESOLVED" ]; then
+                if dnsmasq_uses_sing_box; then
+                    log "sing-box cannot resolve $DNS_PROBE_DOMAIN, its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
+                    dnsmasq_restore
+                fi
+            elif [ "$unresolved" -eq 0 ] && ! dnsmasq_uses_sing_box; then
                 log "sing-box DNS is available, switching dnsmasq to sing-box"
                 dnsmasq_configure
             fi
@@ -650,7 +780,8 @@ dns_guard_stop() {
 }
 
 add_cron_job() {
-    ## Future: make a check so that it doesn't recreate many times
+    local section="$1"
+
     local community_lists remote_domain_lists remote_subnet_lists update_interval
     config_get community_lists "$section" "community_lists"
     config_get remote_domain_lists "$section" "remote_domain_lists"
@@ -683,20 +814,36 @@ add_cron_job() {
         [ -n "$remote_domain_lists" ] ||
         [ -n "$remote_subnet_lists" ]; then
         remove_cron_job
-        crontab -l | {
+        crontab -l 2> /dev/null | {
             cat
             echo "$cron_job"
         } | crontab -
         log "The cron job has been created: $cron_job"
+
+        # cron does not start at boot without any crontab, so with okop's first one it is not running yet
+        if ! pidof crond > /dev/null; then
+            if /etc/init.d/cron enabled; then
+                log "Starting cron for the lists update"
+                /etc/init.d/cron start
+            else
+                log "cron is disabled, lists will not be updated automatically" "warn"
+            fi
+        fi
     fi
 }
 
 remove_cron_job() {
-    (crontab -l | grep -v "/usr/bin/okop list_update") | crontab -
+    (crontab -l 2> /dev/null | grep -v "/usr/bin/okop list_update") | crontab -
     log "The cron job removed"
 }
 
+# Returns 1 when the network is not ready (DNS or GitHub unreachable), 2 when some lists failed
 list_update() {
+    if ! list_update_lock; then
+        echolog "Lists are already being updated"
+        return 0
+    fi
+
     echolog "🔄 Starting lists update..."
 
     local nslookup_timeout=3
@@ -705,20 +852,23 @@ list_update() {
     local curl_attempts=10
     local curl_max_timeout=10
     local delay=3
-    local i
+    local i passed
 
     # DNS Check
+    passed=0
     for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
+            passed=1
             break
         fi
         echolog "DNS is unavailable [$i/$nslookup_attempts]"
         sleep $delay
     done
 
-    if [ "$i" -eq $nslookup_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ DNS check failed after $nslookup_attempts attempts"
+        list_update_unlock
         return 1
     fi
 
@@ -726,10 +876,12 @@ list_update() {
     local service_proxy_address direct_fallback
     service_proxy_address="$(get_service_proxy_address)"
     config_get_bool direct_fallback "settings" "download_lists_direct_fallback" 0
+    passed=0
     for i in $(seq 1 $curl_attempts); do
         if [ -n "$service_proxy_address" ] &&
             curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
             echolog "✅ GitHub connection check passed (via proxy)"
+            passed=1
             break
         fi
 
@@ -737,6 +889,7 @@ list_update() {
         if { [ -z "$service_proxy_address" ] || [ "$direct_fallback" -eq 1 ]; } &&
             curl -s -m $curl_timeout https://github.com > /dev/null; then
             echolog "✅ GitHub connection check passed"
+            passed=1
             break
         fi
 
@@ -747,23 +900,70 @@ list_update() {
         sleep $delay
     done
 
-    if [ "$i" -eq $curl_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ GitHub connection check failed after $curl_attempts attempts"
+        list_update_unlock
         return 1
     fi
 
     echolog "📥 Downloading and processing lists..."
 
-    update_remote_rulesets
-    config_foreach import_community_subnet_lists "section"
-    config_foreach import_domains_from_remote_domain_lists "section"
-    config_foreach import_subnets_from_remote_subnet_lists "section"
+    local status=0
+    update_remote_rulesets || status=2
+    import_lists "update" || status=2
 
-    if [ $? -eq 0 ]; then
+    list_update_unlock
+
+    if [ "$status" -eq 0 ]; then
         echolog "✅ Lists update completed successfully"
     else
-        echolog "❌ Lists update failed"
+        echolog "❌ Some lists could not be updated, their previous copies are used"
     fi
+
+    return "$status"
+}
+
+# Only one list update at a time: the one started with okop and the cron one write the same files.
+# The lock holds the pid, so a lock left by a killed update is taken over.
+list_update_lock() {
+    local own_pid
+    read -r own_pid _ < /proc/self/stat
+
+    if mkdir "$LIST_UPDATE_LOCK" 2> /dev/null; then
+        echo "$own_pid" > "$LIST_UPDATE_LOCK/pid"
+        return 0
+    fi
+
+    if okop_background_job_running "$LIST_UPDATE_LOCK/pid"; then
+        return 1
+    fi
+
+    list_update_unlock
+    mkdir "$LIST_UPDATE_LOCK" 2> /dev/null || return 1
+    echo "$own_pid" > "$LIST_UPDATE_LOCK/pid"
+}
+
+list_update_unlock() {
+    rm -f "${LIST_UPDATE_LOCK:?}/pid"
+    rmdir "$LIST_UPDATE_LOCK" 2> /dev/null
+}
+
+# Started in the background with okop: applies the stored lists right away, then downloads fresh ones,
+# retrying while the network is not ready yet (WAN or the proxy may come up after okop)
+lists_job() {
+    import_lists "cached"
+
+    local delay=60 status
+    while :; do
+        list_update
+        status=$?
+        [ "$status" -ne 1 ] && break
+
+        log "Network is not ready for the lists update, retrying in ${delay}s" "warn"
+        sleep "$delay"
+        delay=$((delay * 2))
+        [ "$delay" -gt 1800 ] && delay=1800
+    done
 }
 
 # sing-box funcs
@@ -802,6 +1002,8 @@ sing_box_init_config() {
 
     # Built in a separate file, a cron list_update may be reading the current one
     : > "$REMOTE_RULESETS_INDEX.new"
+    prepared_source_rulesets=""
+    remote_ruleset_urls=""
 
     sing_box_configure_log
     sing_box_configure_inbounds
@@ -840,7 +1042,35 @@ sing_box_configure_outbounds() {
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    config_foreach configure_outbound_handler "section"
+    config_foreach generate_for_section "section" configure_outbound_handler
+}
+
+# Section names become sing-box tags: "direct" gives direct-out and "service" gives service-mixed-in,
+# which okop uses itself, and sing-box rejects duplicate tags. LuCI refuses these names, this covers
+# configs edited by hand.
+check_section_name() {
+    local section="$1"
+
+    case "$section" in
+    direct | service)
+        log "Section name '$section' is reserved, rename the section. Aborted." "fatal"
+        exit 1
+        ;;
+    esac
+}
+
+# Runs a per-section step of the config generation and stops naming the section when the step broke the
+# config: a jq error anywhere empties it, and the start would otherwise only report an invalid config
+generate_for_section() {
+    local section="$1"
+    local step="$2"
+
+    "$step" "$section"
+
+    if [ -z "$config" ]; then
+        log "Section '$section': its settings could not be turned into a sing-box configuration ($step). Check the proxy link, ports and JSON of this section. Aborted." "fatal"
+        exit 1
+    fi
 }
 
 configure_outbound_handler() {
@@ -1068,7 +1298,7 @@ sing_box_configure_route() {
 
     config_foreach include_source_ips_in_routing_handler "section"
 
-    config_foreach configure_routing_for_section_lists "section"
+    config_foreach generate_for_section "section" configure_routing_for_section_lists
 }
 
 include_source_ips_in_routing_handler() {
@@ -1247,23 +1477,30 @@ prepare_source_ruleset() {
     log "Preparing a $name $type rule set for '$section' section" "debug"
     ruleset_tag=$(get_ruleset_tag "$section" "$name" "$type")
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    create_source_rule_set "$ruleset_filepath"
-    case $? in
-    0)
-        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
-        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-        case "$type" in
-        domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-            ;;
-        subnets) ;;
-        *)
-            log "Unsupported remote rule set type: $type" "error"
-            return 1
-            ;;
-        esac
+
+    # Several lists of a section may share one rule set (e.g. plain-text remote lists). Whether it is
+    # already in the config is decided per run, not by the file existing: a file left by a previous run or
+    # recreated by a concurrent update would leave the rule set out of the config.
+    case " $prepared_source_rulesets " in
+    *" $ruleset_tag "*)
+        log "Source rule set $ruleset_filepath is already prepared" "debug"
+        return 0
         ;;
-    3) log "Source rule set $ruleset_filepath already exists, skipping." "debug" ;;
+    esac
+    prepared_source_rulesets="$prepared_source_rulesets $ruleset_tag"
+    jq -n '{version: 3, rules: []}' > "$ruleset_filepath"
+
+    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+    case "$type" in
+    domains)
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+        ;;
+    subnets) ;;
+    *)
+        log "Unsupported remote rule set type: $type" "error"
+        return 1
+        ;;
     esac
 }
 
@@ -1273,16 +1510,19 @@ configure_user_domain_list() {
 
     prepare_source_ruleset "$section" "user" "domains" "$route_rule_tag"
 
-    local user_domain_list_type items json_array
+    local user_domain_list_type items
     config_get user_domain_list_type "$section" "user_domain_list_type"
     case "$user_domain_list_type" in
     dynamic) config_get items "$section" "user_domains" ;;
     text) config_get items "$section" "user_domains_text" ;;
     esac
 
-    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "domains")"
-    json_array="$(comma_string_to_json_array "$items")"
-    patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
+    # Through a file: a long list passed as one argument exceeded the size limit and was silently dropped
+    local items_filepath
+    items_filepath="$(mktemp)"
+    printf '%s\n' "$items" > "$items_filepath"
+    import_plain_domain_list_to_local_source_ruleset_chunked "$items_filepath" "$ruleset_filepath"
+    rm -f "$items_filepath"
 }
 
 configure_user_subnet_list() {
@@ -1291,17 +1531,19 @@ configure_user_subnet_list() {
 
     prepare_source_ruleset "$section" "user" "subnets" "$route_rule_tag"
 
-    local user_subnet_list_type items json_array
+    local user_subnet_list_type items
     config_get user_subnet_list_type "$section" "user_subnet_list_type"
     case "$user_subnet_list_type" in
     dynamic) config_get items "$section" "user_subnets" ;;
     text) config_get items "$section" "user_subnets_text" ;;
     esac
 
-    items="$(parse_domain_or_subnet_string_to_commas_string "$items" "subnets")"
-    json_array="$(comma_string_to_json_array "$items")"
-    patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-    nft_add_set_elements "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME" "$items"
+    local items_filepath
+    items_filepath="$(mktemp)"
+    printf '%s\n' "$items" > "$items_filepath"
+    import_plain_subnet_list_to_local_source_ruleset_chunked "$items_filepath" "$ruleset_filepath"
+    nft_add_set_elements_from_file_chunked "$items_filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+    rm -f "$items_filepath"
 }
 
 configure_local_domain_lists() {
@@ -1363,6 +1605,21 @@ configure_remote_domain_or_subnet_list_handler() {
         basename=$(url_get_basename "$url")
         ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
         format="$(get_ruleset_format_by_file_extension "$file_extension")"
+
+        # The same list twice in a section would add its rule set twice
+        case " $remote_ruleset_urls " in
+        *" $section|$type|$url "*)
+            log "List $url is added twice to '$section' section, the second one is ignored" "warn"
+            return 0
+            ;;
+        esac
+        remote_ruleset_urls="$remote_ruleset_urls $section|$type|$url"
+
+        # Different lists may share a file name (a.com/list.srs and b.com/list.srs, list.srs and list.json),
+        # and sing-box rejects duplicate tags. The first one keeps the plain tag, so existing caches stay valid.
+        if awk -v tag="$ruleset_tag" '$1 == tag { found = 1 } END { exit !found }' "$REMOTE_RULESETS_INDEX.new"; then
+            ruleset_tag=$(get_ruleset_tag "$section" "$basename-$(printf '%s' "$url" | md5sum | cut -c1-8)" "remote-$type")
+        fi
 
         add_cached_remote_ruleset "$ruleset_tag" "$format" "$url" || return 1
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
@@ -1547,7 +1804,7 @@ sing_box_additional_inbounds() {
         )
     fi
 
-    config_foreach configure_section_mixed_proxy "section"
+    config_foreach generate_for_section "section" configure_section_mixed_proxy
 }
 
 configure_section_mixed_proxy() {
@@ -1610,254 +1867,286 @@ sing_box_save_config() {
 sing_box_config_check() {
     local config_path="$1"
 
-    if ! sing-box -c "$config_path" check > /dev/null 2>&1; then
-        log "Sing-box configuration $config_path is invalid. Aborted." "fatal"
+    # An empty file means the generation failed earlier: a jq error empties the config being built
+    if [ ! -s "$config_path" ] || [ "$(jq -r 'type' "$config_path" 2> /dev/null)" != "object" ]; then
+        log "The sing-box configuration could not be generated, see the errors above. Aborted." "fatal"
+        rm -f "$config_path"
+        exit 1
+    fi
+
+    local check_output
+    if ! check_output="$(sing-box -c "$config_path" check 2>&1)"; then
+        log "sing-box rejected the configuration: $(printf '%s' "$check_output" | sed 's/\x1b\[[0-9;]*m//g' | tail -n 3 | tr '\n' ' '). Aborted." "fatal"
+        rm -f "$config_path"
         exit 1
     fi
 }
 
+# Remote plain-text lists and the community subnet lists are kept next to the rule sets: they are applied
+# at start without network access, and a failed update keeps the previous copy.
+get_cached_list_filepath() {
+    local url="$1"
+    echo "$(get_ruleset_cache_path)/lists/$(printf '%s' "$url" | md5sum | cut -c1-16).lst"
+}
+
+update_cached_list() {
+    local url="$1"
+
+    local filepath tmpfile partfile
+    filepath="$(get_cached_list_filepath "$url")"
+    mkdir -p "$(dirname "$filepath")"
+    tmpfile="$(mktemp)"
+
+    if ! download_to_file "$url" "$tmpfile" "$(get_service_proxy_address)" || [ ! -s "$tmpfile" ]; then
+        log "Failed to download $url, the previous copy is kept" "error"
+        rm -f "$tmpfile"
+        return 1
+    fi
+    convert_crlf_to_lf "$tmpfile"
+
+    if cmp -s "$tmpfile" "$filepath"; then
+        rm -f "$tmpfile"
+        return 0
+    fi
+
+    partfile="$filepath.$$.tmp"
+    if ! cp "$tmpfile" "$partfile" || ! chmod 644 "$partfile" || ! mv "$partfile" "$filepath"; then
+        log "Failed to save list $filepath" "error"
+        rm -f "$tmpfile" "$partfile"
+        return 1
+    fi
+
+    rm -f "$tmpfile"
+    log "List $url has been updated"
+}
+
+# Prints the cached copy of a list and records it as in use, or fails when there is none yet
+get_cached_list() {
+    local url="$1"
+
+    local filepath
+    filepath="$(get_cached_list_filepath "$url")"
+    echo "$url" >> "$CACHED_LISTS_INDEX"
+
+    if [ ! -s "$filepath" ]; then
+        log "No downloaded copy of $url yet" "warn"
+        return 1
+    fi
+
+    echo "$filepath"
+}
+
+# Removes cached lists that are no longer configured
+cleanup_list_cache() {
+    local dir filepath used url
+    dir="$(get_ruleset_cache_path)/lists"
+    [ -d "$dir" ] || return 0
+
+    rm -f "${dir:?}"/*.lst.*.tmp
+    used=""
+    if [ -f "$CACHED_LISTS_INDEX" ]; then
+        while IFS= read -r url; do
+            used="$used $(get_cached_list_filepath "$url")"
+        done < "$CACHED_LISTS_INDEX"
+    fi
+
+    for filepath in "${dir:?}"/*.lst; do
+        [ -f "$filepath" ] || continue
+        case " $used " in
+        *" $filepath "*) ;;
+        *)
+            log "Removing unused cached list $filepath"
+            rm -f "$filepath"
+            ;;
+        esac
+    done
+}
+
+# Fills the nft sets and the plain-text rule sets of every section.
+# mode "update" downloads the lists first, mode "cached" uses the copies already stored.
+# Returns 1 when a list could not be downloaded or read.
+import_lists() {
+    local mode="$1"
+
+    import_lists_failed=0
+    : > "$CACHED_LISTS_INDEX"
+    config_foreach import_community_subnet_lists "section" "$mode"
+    config_foreach import_domains_from_remote_domain_lists "section" "$mode"
+    config_foreach import_subnets_from_remote_subnet_lists "section" "$mode"
+    cleanup_list_cache
+
+    return "$import_lists_failed"
+}
+
 import_community_subnet_lists() {
     local section="$1"
+    local mode="$2"
+
     local community_lists
     config_get community_lists "$section" "community_lists"
     if [ -n "$community_lists" ]; then
         log "Importing community subnet lists for '$section' section"
-        config_list_foreach "$section" "community_lists" import_community_service_subnet_list_handler
+        config_list_foreach "$section" "community_lists" import_community_service_subnet_list_handler "$mode"
     fi
 }
 
 import_community_service_subnet_list_handler() {
     local service="$1"
+    local mode="$2"
 
+    local url set_name="$NFT_COMMON_SET_NAME"
     case "$service" in
-    "twitter")
-        URL=$SUBNETS_TWITTER
-        ;;
-    "meta")
-        URL=$SUBNETS_META
-        ;;
-    "telegram")
-        URL=$SUBNETS_TELERAM
-        ;;
-    "cloudflare")
-        URL=$SUBNETS_CLOUDFLARE
-        ;;
-    "hetzner")
-        URL=$SUBNETS_HETZNER
-        ;;
-    "ovh")
-        URL=$SUBNETS_OVH
-        ;;
-    "digitalocean")
-        URL=$SUBNETS_DIGITALOCEAN
-        ;;
-    "cloudfront")
-        URL=$SUBNETS_CLOUDFRONT
-        ;;
+    "twitter") url=$SUBNETS_TWITTER ;;
+    "meta") url=$SUBNETS_META ;;
+    "telegram") url=$SUBNETS_TELERAM ;;
+    "cloudflare") url=$SUBNETS_CLOUDFLARE ;;
+    "hetzner") url=$SUBNETS_HETZNER ;;
+    "ovh") url=$SUBNETS_OVH ;;
+    "digitalocean") url=$SUBNETS_DIGITALOCEAN ;;
+    "cloudfront") url=$SUBNETS_CLOUDFRONT ;;
     "discord")
-        URL=$SUBNETS_DISCORD
-        nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
-        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
-            "@$NFT_DISCORD_SET_NAME" udp dport '{ 19000-20000, 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
+        url=$SUBNETS_DISCORD
+        set_name="$NFT_DISCORD_SET_NAME"
         ;;
-    "roblox")
-        URL=$SUBNETS_ROBLOX
-        ;;
+    "roblox") url=$SUBNETS_ROBLOX ;;
     *) return 0 ;;
     esac
 
-    local tmpfile http_proxy_address
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$URL" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $service list failed" "error"
-        rm -f "$tmpfile"
-        return 1
+    if [ "$mode" = "update" ]; then
+        update_cached_list "$url" || import_lists_failed=1
     fi
 
-    if [ "$service" = "discord" ]; then
-        nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
-    else
-        nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-    fi
-
-    rm -f "$tmpfile"
+    local filepath
+    filepath="$(get_cached_list "$url")" || return 0
+    nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$set_name"
 }
 
+# The plain-text domain lists of a section share one source rule set. It is rebuilt in a temporary file
+# and moved in place, so entries removed from the lists go away and sing-box never sees it half-built.
 import_domains_from_remote_domain_lists() {
     local section="$1"
-    local remote_domain_lists
+    local mode="$2"
+
+    local remote_domain_lists ruleset_filepath
     config_get remote_domain_lists "$section" "remote_domain_lists"
-    if [ -n "$remote_domain_lists" ]; then
-        log "Importing domains from remote domain lists for '$section' section"
-        config_list_foreach "$section" "remote_domain_lists" import_domains_from_remote_domain_list_handler "$section"
+    [ -n "$remote_domain_lists" ] || return 0
+
+    ruleset_filepath="$TMP_RULESET_FOLDER/$(get_ruleset_tag "$section" "remote" "domains").json"
+    building_ruleset_filepath="$ruleset_filepath.$$.tmp"
+    jq -n '{version: 3, rules: []}' > "$building_ruleset_filepath"
+
+    log "Importing domains from remote domain lists for '$section' section"
+    config_list_foreach "$section" "remote_domain_lists" import_domains_from_remote_domain_list_handler "$mode"
+
+    # Only sections with plain-text lists have this rule set in the sing-box config
+    if [ -f "$ruleset_filepath" ]; then
+        mv "$building_ruleset_filepath" "$ruleset_filepath"
+    else
+        rm -f "$building_ruleset_filepath"
     fi
 }
 
 import_domains_from_remote_domain_list_handler() {
     local url="$1"
-    local section="$2"
+    local mode="$2"
 
-    log "Importing domains from URL: $url"
-
-    local file_extension
-    file_extension=$(url_get_file_extension "$url")
-    log "Detected file extension: '$file_extension'" "debug"
-    case "$file_extension" in
+    case "$(url_get_file_extension "$url")" in
     json | srs)
         log "Rule set $url is updated separately" "debug"
-        ;;
-    *)
-        log "Import domains from a remote plain-text list"
-        import_domains_from_remote_plain_file "$url" "$section"
+        return 0
         ;;
     esac
-}
 
-import_domains_from_remote_plain_file() {
-    local url="$1"
-    local section="$2"
-
-    local tmpfile http_proxy_address items json_array
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$tmpfile"
-        return 1
+    if [ "$mode" = "update" ]; then
+        update_cached_list "$url" || import_lists_failed=1
     fi
 
-    convert_crlf_to_lf "$tmpfile"
-    ruleset_tag=$(get_ruleset_tag "$section" "remote" "domains")
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    import_plain_domain_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
-
-    rm -f "$tmpfile"
+    local filepath
+    filepath="$(get_cached_list "$url")" || return 0
+    import_plain_domain_list_to_local_source_ruleset_chunked "$filepath" "$building_ruleset_filepath"
 }
 
 import_subnets_from_remote_subnet_lists() {
     local section="$1"
-    local remote_subnet_lists
+    local mode="$2"
+
+    local remote_subnet_lists ruleset_filepath
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
-    if [ -n "$remote_subnet_lists" ]; then
-        log "Importing subnets from remote subnet lists for '$section' section"
-        config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section"
+    [ -n "$remote_subnet_lists" ] || return 0
+
+    ruleset_filepath="$TMP_RULESET_FOLDER/$(get_ruleset_tag "$section" "remote" "subnets").json"
+    building_ruleset_filepath="$ruleset_filepath.$$.tmp"
+    jq -n '{version: 3, rules: []}' > "$building_ruleset_filepath"
+
+    log "Importing subnets from remote subnet lists for '$section' section"
+    config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section" "$mode"
+
+    if [ -f "$ruleset_filepath" ]; then
+        mv "$building_ruleset_filepath" "$ruleset_filepath"
+    else
+        rm -f "$building_ruleset_filepath"
     fi
 }
 
 import_subnets_from_remote_subnet_list_handler() {
     local url="$1"
     local section="$2"
-
-    log "Importing subnets from URL: $url"
+    local mode="$3"
 
     local file_extension
     file_extension="$(url_get_file_extension "$url")"
-    log "Detected file extension: '$file_extension'" "debug"
     case "$file_extension" in
-    json)
-        log "Import subnets from a remote JSON list" "info"
-        import_subnets_from_remote_json_file "$url"
-        ;;
-    srs)
-        log "Import subnets from a remote SRS list" "info"
-        import_subnets_from_remote_srs_file "$url"
+    json | srs)
+        # Read from the rule set sing-box already uses, update_remote_rulesets downloads it. Its tag is taken
+        # from the index: tags of lists sharing a file name carry a hash of the URL.
+        local ruleset_tag
+        ruleset_tag=$(awk -v url="$url" -v prefix="$section-" \
+            'index($1, prefix) == 1 && $1 ~ /-remote-subnets-ruleset$/ && $3 == url { print $1; exit }' \
+            "$REMOTE_RULESETS_INDEX")
+        [ -n "$ruleset_tag" ] || return 0
+        import_subnets_from_ruleset_file \
+            "$(get_cached_ruleset_filepath "$ruleset_tag" "$(get_ruleset_format_by_file_extension "$file_extension")")" \
+            "$file_extension" "$url" || import_lists_failed=1
         ;;
     *)
-        log "Import subnets from a remote plain-text list" "info"
-        import_subnets_from_remote_plain_file "$url" "$section"
+        if [ "$mode" = "update" ]; then
+            update_cached_list "$url" || import_lists_failed=1
+        fi
+
+        local filepath
+        filepath="$(get_cached_list "$url")" || return 0
+        import_plain_subnet_list_to_local_source_ruleset_chunked "$filepath" "$building_ruleset_filepath"
+        nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
         ;;
     esac
 }
 
-import_subnets_from_remote_json_file() {
-    local url="$1"
-    local json_tmpfile subnets_tmpfile http_proxy_address
+import_subnets_from_ruleset_file() {
+    local ruleset_filepath="$1"
+    local file_extension="$2"
+    local url="$3"
+
+    [ -s "$ruleset_filepath" ] || return 0
+
+    local json_tmpfile subnets_tmpfile status=0
     json_tmpfile="$(mktemp)"
     subnets_tmpfile="$(mktemp)"
-    http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_file "$url" "$json_tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$json_tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$json_tmpfile" "$subnets_tmpfile"
-        return 1
+    if [ "$file_extension" = "srs" ]; then
+        decompile_binary_ruleset "$ruleset_filepath" "$json_tmpfile" || status=1
+    else
+        cp "$ruleset_filepath" "$json_tmpfile" || status=1
     fi
 
-    if ! extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
+    if [ "$status" -eq 0 ] && extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
+        nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+    else
         log "Cannot read subnets from $url, they will not be routed" "error"
-        rm -f "$json_tmpfile" "$subnets_tmpfile"
-        return 1
+        status=1
     fi
 
-    nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
     rm -f "$json_tmpfile" "$subnets_tmpfile"
-}
-
-import_subnets_from_remote_srs_file() {
-    local url="$1"
-
-    local binary_tmpfile json_tmpfile subnets_tmpfile http_proxy_address
-    binary_tmpfile="$(mktemp)"
-    json_tmpfile="$(mktemp)"
-    subnets_tmpfile="$(mktemp)"
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$binary_tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$binary_tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-        return 1
-    fi
-
-    if ! decompile_binary_ruleset "$binary_tmpfile" "$json_tmpfile"; then
-        log "Failed to decompile binary rule set file" "error"
-        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-        return 1
-    fi
-
-    if ! extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
-        log "Cannot read subnets from $url, they will not be routed" "error"
-        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-        return 1
-    fi
-
-    nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-    rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-}
-
-import_subnets_from_remote_plain_file() {
-    local url="$1"
-    local section="$2"
-
-    local tmpfile http_proxy_address items json_array
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$tmpfile"
-        return 1
-    fi
-
-    convert_crlf_to_lf "$tmpfile"
-
-    ruleset_tag=$(get_ruleset_tag "$section" "remote" "subnets")
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    import_plain_subnet_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
-    nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-
-    rm -f "$tmpfile"
+    return "$status"
 }
 
 ## Support functions
@@ -1957,12 +2246,13 @@ get_service_listen_address() {
 nft_list_all_traffic_from_ip() {
     local ip="$1"
 
-    if ! nft list chain inet "$NFT_TABLE_NAME" mangle | grep -q "ip saddr $ip"; then
-        nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" \
-            meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
-        nft insert rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip saddr "$ip" \
-            meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
-        nft insert rule inet "$NFT_TABLE_NAME" mangle ip saddr "$ip" ip daddr @localv4 return
+    # The trailing blank keeps 192.168.1.1 from matching the rules of 192.168.1.10
+    if ! nft list chain inet "$NFT_TABLE_NAME" "$NFT_FULLY_ROUTED_CHAIN_NAME" | grep -q "ip saddr $ip "; then
+        nft add rule inet "$NFT_TABLE_NAME" "$NFT_FULLY_ROUTED_CHAIN_NAME" ip saddr "$ip" ip daddr @localv4 return
+        nft add rule inet "$NFT_TABLE_NAME" "$NFT_FULLY_ROUTED_CHAIN_NAME" iifname "@$NFT_INTERFACE_SET_NAME" \
+            ip saddr "$ip" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
+        nft add rule inet "$NFT_TABLE_NAME" "$NFT_FULLY_ROUTED_CHAIN_NAME" iifname "@$NFT_INTERFACE_SET_NAME" \
+            ip saddr "$ip" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
     fi
 }
 
@@ -1988,30 +2278,7 @@ check_proxy() {
         return 1
     fi
 
-    jq '
-    walk(
-        if type == "object" then
-            with_entries(
-                if .key == "uuid" then
-                    .value = "MASKED"
-                elif .key == "server" then
-                    .value = "MASKED"
-                elif .key == "server_name" then
-                    .value = "MASKED"
-                elif .key == "password" then
-                    .value = "MASKED"
-                elif .key == "public_key" then
-                    .value = "MASKED"
-                elif .key == "short_id" then
-                    .value = "MASKED"
-                elif .key == "fingerprint" then
-                    .value = "MASKED"
-                elif .key == "server_port" then
-                    .value = "MASKED"
-                else . end
-            )
-        else . end
-    )' "$sing_box_config_path"
+    mask_sing_box_config "$sing_box_config_path"
 
     nolog "Checking proxy connection..."
 
@@ -2139,6 +2406,27 @@ check_logs() {
     fi
 }
 
+# Prints a sing-box config with everything that identifies the server or authenticates to it masked.
+# The output of the diagnostics is pasted into chats and issues. Paths of local rule sets are kept,
+# they are needed to diagnose lists.
+mask_sing_box_config() {
+    jq '
+    def secret_key:
+        IN("uuid", "server", "server_name", "server_port", "server_ports", "password", "username",
+            "public_key", "short_id", "fingerprint", "secret", "private_key", "pre_shared_key",
+            "auth", "auth_str", "path", "headers", "host", "service_name", "plugin_opts");
+    walk(
+        if type == "object" then
+            (.type // "") as $type
+            | with_entries(
+                if (.key | secret_key) and (.key != "path" or ($type != "local" and $type != "remote")) then
+                    .value = "MASKED"
+                else . end
+            )
+        else . end
+    )' "$@"
+}
+
 show_sing_box_config() {
     local sing_box_config_path
     config_get sing_box_config_path "settings" "config_path"
@@ -2149,30 +2437,7 @@ show_sing_box_config() {
         return 1
     fi
 
-    jq '
-    walk(
-        if type == "object" then
-            with_entries(
-                if .key == "uuid" then
-                    .value = "MASKED"
-                elif .key == "server" then
-                    .value = "MASKED"
-                elif .key == "server_name" then
-                    .value = "MASKED"
-                elif .key == "password" then
-                    .value = "MASKED"
-                elif .key == "public_key" then
-                    .value = "MASKED"
-                elif .key == "short_id" then
-                    .value = "MASKED"
-                elif .key == "fingerprint" then
-                    .value = "MASKED"
-                elif .key == "server_port" then
-                    .value = "MASKED"
-                else . end
-            )
-        else . end
-    )' "$sing_box_config_path"
+    mask_sing_box_config "$sing_box_config_path"
 }
 
 show_config() {
@@ -2322,16 +2587,14 @@ check_dns_available() {
     local dhcp_config_status=1
     local domain="google.com"
 
-    # Mask NextDNS ID if present
+    # Paths of DoH servers often carry a private profile ID (NextDNS, AdGuard DNS and others), and so does
+    # the NextDNS host name
     local display_dns_server="$dns_server"
-    if echo "$dns_server" | grep -q "\.dns\.nextdns\.io$"; then
-        local nextdns_id
-        nextdns_id=$(echo "$dns_server" | cut -d'.' -f1)
-        display_dns_server="$(echo "$nextdns_id" | sed 's/./*/g').dns.nextdns.io"
-    elif echo "$dns_server" | grep -q "^dns\.nextdns\.io/"; then
-        local masked_path
-        masked_path=$(echo "$dns_server" | cut -d'/' -f2- | sed 's/./*/g')
-        display_dns_server="dns.nextdns.io/$masked_path"
+    case "$dns_server" in
+    */*) display_dns_server="${dns_server%%/*}/******" ;;
+    esac
+    if echo "$display_dns_server" | grep -q "\.dns\.nextdns\.io"; then
+        display_dns_server="******.dns.nextdns.io${display_dns_server#*.dns.nextdns.io}"
     fi
 
     if [ "$dns_type" = "doh" ]; then
@@ -2916,9 +3179,8 @@ global_check() {
                 if ($1 == "option" && $2 == "proto") {
                     proto = $3
                     print
-                } else if (proto == "'\''static'\''" && $1 == "option" && ($2 == "ipaddr" || $2 == "netmask" || $2 == "gateway")) {
-                    print "        option", $2, "'\''******'\''"
-                } else if (proto == "'\''pppoe'\''" && $1 == "option" && ($2 == "username" || $2 == "password")) {
+                } else if ($1 == "option" && $2 ~ /^(username|password|pincode|pin|key|auth|ipaddr|netmask|gateway|ip6addr|ip6gw|ip6prefix|macaddr)$/) {
+                    # Credentials of every protocol (PPPoE, L2TP, PPTP, modems) and addresses
                     print "        option", $2, "'\''******'\''"
                 } else {
                     print
@@ -3025,15 +3287,19 @@ EOF
 
 case "$1" in
 start)
+    okop_lock
     start
     ;;
 stop)
+    okop_lock
     stop
     ;;
 reload)
+    okop_lock
     reload
     ;;
 restart)
+    okop_lock
     restart
     ;;
 main)

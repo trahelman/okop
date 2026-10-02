@@ -53,9 +53,9 @@ uci show dhcp.@dnsmasq[0] | grep -E 'server|noresolv|cachesize'
 ```
 Пока Okop работает, должно быть `noresolv='1'`, `cachesize='0'`, а среди `server` — `127.0.0.42` и, возможно, ваши перенаправления вида `/домен/адрес`.
 
-Если `127.0.0.42` там нет, а `okop_server` есть, значит, сработала [защита DNS](how-it-works.md#защита-dns): sing-box не отвечает, и dnsmasq временно вернулся на обычные серверы. Интернет в сети при этом работает, но маршрутизация по доменам — нет. Причину ищите в логах sing-box:
+Если Okop запущен, а `127.0.0.42` там нет, значит, сработала [защита DNS](how-it-works.md#защита-dns): sing-box не отвечает или не может резолвить, и dnsmasq временно вернулся на обычные серверы. Интернет в сети при этом работает, но маршрутизация по доменам — нет. Причину ищите в логах:
 ```
-logread -e okop | grep -E 'guard|switching'
+logread -e okop | grep -E 'guard|switching|sing-box is'
 logread -e sing-box | tail -50
 ```
 

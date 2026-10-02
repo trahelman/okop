@@ -10,13 +10,21 @@
 function describeProxyLink(link) {
   const match = String(link || "")
     .trim()
-    .match(/^([a-z0-9]+):\/\/(?:[^@\/?#]*@)?([^\/?#]*)[^#]*(?:#(.*))?$/i);
+    .match(/^([a-z0-9]+):\/\/([^?#]*)[^#]*(?:#(.*))?$/i);
   if (!match) {
     return _("invalid link");
   }
 
-  const [, scheme, hostPort, name] = match;
-  let label = hostPort;
+  const [, scheme, authority, name] = match;
+  // The server follows the last "@": a password may itself contain "/" or "@". Without "@" an ss link
+  // is entirely base64 with the password inside, so nothing of it is shown.
+  const at = authority.lastIndexOf("@");
+  let label = "";
+  if (at >= 0) {
+    label = authority.slice(at + 1).split("/")[0];
+  } else if (scheme.toLowerCase() !== "ss") {
+    label = authority.split("/")[0];
+  }
   if (name) {
     try {
       label = decodeURIComponent(name);
@@ -25,7 +33,7 @@ function describeProxyLink(link) {
     }
   }
 
-  return `${scheme.toLowerCase()} · ${label}`;
+  return label ? `${scheme.toLowerCase()} · ${label}` : scheme.toLowerCase();
 }
 
 function describeOutboundJson(json) {
@@ -102,7 +110,8 @@ function describeConnection(section_id) {
     lines.push(_("mixed proxy on port %s").format(get("mixed_proxy_port")));
   }
 
-  return E("div", {}, lines.map((line) => E("div", {}, line)));
+  // Arrays, not strings: LuCI inserts a string child as HTML, and these come from user input (link names)
+  return E("div", {}, lines.map((line) => E("div", {}, [line])));
 }
 
 function describeLists(section_id) {
@@ -145,7 +154,8 @@ function describeLists(section_id) {
     return E("em", {}, _("no lists"));
   }
 
-  return E("div", {}, lines.map((line) => E("div", {}, line)));
+  // Arrays, not strings: LuCI inserts a string child as HTML, and these come from user input (link names)
+  return E("div", {}, lines.map((line) => E("div", {}, [line])));
 }
 
 // Columns of the sections table, the options themselves are edited in the modal
@@ -687,8 +697,7 @@ function createSectionContent(section) {
     "user_subnets_text",
     _("User Subnets List"),
     _(
-      "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. " +
-        "You can add comments using //",
+      "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //",
     ),
   );
   o.placeholder =
@@ -867,8 +876,7 @@ function createSectionContent(section) {
     "mixed_proxy_port",
     _("Mixed Proxy Port"),
     _(
-      "Specify the port number on which the mixed proxy will run for this section. " +
-        "Make sure the selected port is not used by another service",
+      "Specify the port number on which the mixed proxy will run for this section. Make sure the selected port is not used by another service",
     ),
   );
   o.rmempty = false;
@@ -876,6 +884,31 @@ function createSectionContent(section) {
   // in place with no sing-box behind it
   o.datatype = "port";
   o.depends("mixed_proxy_enabled", "1");
+  // The mixed proxy listens on the LAN address, where these ports are taken by the router itself.
+  // sing-box would fail to bind and the start would be rolled back.
+  o.validate = function (section_id, value) {
+    const port = parseInt(value, 10);
+    const routerPorts = [22, 53, 80, 443, 9090];
+    if (routerPorts.includes(port)) {
+      return _(
+        "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)",
+      ).format(port);
+    }
+
+    const takenByOtherSection = uci
+      .sections("okop", "section")
+      .some(
+        (other) =>
+          other[".name"] !== section_id &&
+          other.mixed_proxy_enabled === "1" &&
+          parseInt(other.mixed_proxy_port, 10) === port,
+      );
+    if (takenByOtherSection) {
+      return _("Port %d is already used by another section").format(port);
+    }
+
+    return true;
+  };
 
   o = section.taboption(
     "advanced",

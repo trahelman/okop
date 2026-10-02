@@ -42,7 +42,7 @@ async function connectToClashSockets() {
   const clashApiSecret = await getClashApiSecret();
 
   socket.subscribe(
-    `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
+    `${getClashWsUrl()}/traffic?token=${encodeURIComponent(clashApiSecret)}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
 
@@ -71,7 +71,7 @@ async function connectToClashSockets() {
   );
 
   socket.subscribe(
-    `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
+    `${getClashWsUrl()}/connections?token=${encodeURIComponent(clashApiSecret)}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
 
@@ -454,10 +454,25 @@ function registerLifecycleListeners() {
   });
 }
 
+// LuCI calls cfgvalue, and with it initController, on load, on render and on every save. Each call used
+// to add a DOM observer and a store listener that were never removed.
+let mountPending = false;
+let lifecycleListenersRegistered = false;
+
 export async function initController(): Promise<void> {
+  if (mountPending) {
+    return;
+  }
+
+  mountPending = true;
   onMount('dashboard-status').then(() => {
+    mountPending = false;
     logger.debug('[DASHBOARD]', 'initController', 'onMount');
     onPageMount();
-    registerLifecycleListeners();
+
+    if (!lifecycleListenersRegistered) {
+      lifecycleListenersRegistered = true;
+      registerLifecycleListeners();
+    }
   });
 }

@@ -24,121 +24,120 @@ create_source_rule_set() {
     jq -n '{version: 3, rules: []}' > "$ruleset_filepath"
 }
 
-#######################################
-# Patch a source ruleset JSON file for sing-box by appending a new ruleset object containing the provided key
-# and value.
-# Arguments:
-#   filepath: path to the JSON file to patch
-#   key: the ruleset key to insert (e.g., "ip_cidr")
-#   value: a JSON array of values to assign to the key
-# Example:
-#   patch_source_ruleset_rules "/tmp/sing-box/ruleset.json" "ip_cidr" '["1.1.1.1","2.2.2.2"]'
-#######################################
-patch_source_ruleset_rules() {
-    local filepath="$1"
-    local key="$2"
-    local value="$3"
+# Turns a plain list into one valid entry per line, in one pass (a fork per line made lists of tens of
+# thousands of entries take minutes). Comments ("//", or "#" at the start or after a blank), carriage
+# returns and blanks are removed, entries may also be separated by commas. Domains are lowercased and lose
+# a scheme, path and port, so "Example.com" and "https://example.com/page" work; "*.example.com" becomes
+# ".example.com". Invalid entries are dropped.
+normalize_plain_list() {
+    local input="$1"
+    local output="$2"
+    local type="$3"
 
-    local tmpfile=$(mktemp)
+    awk -v type="$type" '
+        function emit(entry,    parts, count, i, dot) {
+            if (type == "domains") {
+                entry = tolower(entry)
+                sub(/^[a-z][a-z0-9+.-]*:\/\//, "", entry)
+                sub(/[\/:?#].*$/, "", entry)
+                # ".example.com" (and "*.example.com") is a suffix of subdomains only
+                sub(/^\*\./, ".", entry)
+                dot = substr(entry, 1, 1) == "." ? "." : ""
+                entry = substr(entry, length(dot) + 1)
+                if (entry ~ /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/)
+                    print dot entry
+                return
+            }
 
-    jq --arg key "$key" --argjson value "$value" \
-        '( .rules | map(has($key)) | index(true) ) as $idx |
-        if $idx != null then
-            .rules[$idx][$key] = (.rules[$idx][$key] + $value | unique)
-        else
-            .rules += [{ ($key): $value }]
-        end' "$filepath" > "$tmpfile"
+            # Leading zeros are rejected by sing-box and read as octal by nft
+            if (entry !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\/[0-9]+)?$/ || entry ~ /(^|[.\/])0[0-9]/)
+                return
+            count = split(entry, parts, /[.\/]/)
+            for (i = 1; i <= 4; i++)
+                if (parts[i] + 0 > 255)
+                    return
+            if (count == 5 && parts[5] + 0 > 32)
+                return
+            print entry
+        }
+        {
+            gsub(/\r/, "")
+            # "//" starts a comment anywhere, as in LuCI, except after the colon of a scheme
+            line = $0
+            kept = ""
+            while ((i = index(line, "//")) > 0) {
+                if (i > 1 && substr(line, i - 1, 1) == ":") {
+                    kept = kept substr(line, 1, i + 1)
+                    line = substr(line, i + 2)
+                } else {
+                    line = substr(line, 1, i - 1)
+                    break
+                }
+            }
+            $0 = kept line
+            sub(/(^|[ \t])#.*$/, "")
+            count = split($0, entries, /[ \t,]+/)
+            for (i = 1; i <= count; i++)
+                if (entries[i] != "")
+                    emit(entries[i])
+        }
+    ' "$input" > "$output"
+}
 
-    if [ $? -ne 0 ]; then
+# Adds the entries of a normalized list file to a source rule set under the given key. The entries are
+# read from the file, not passed as an argument: large user lists exceeded the argument size limit and
+# were silently left out.
+add_list_file_to_source_ruleset() {
+    local list_filepath="$1"
+    local ruleset_filepath="$2"
+    local key="$3"
+
+    local tmpfile
+    tmpfile="$(mktemp)"
+    if ! jq --rawfile items "$list_filepath" --arg key "$key" '
+        ($items | split("\n") | map(select(length > 0))) as $new
+        | (.rules | map(has($key)) | index(true)) as $idx
+        | if ($new | length) == 0 then .
+          elif $idx != null then .rules[$idx][$key] = (.rules[$idx][$key] + $new | unique)
+          else .rules += [{($key): ($new | unique)}]
+          end
+    ' "$ruleset_filepath" > "$tmpfile"; then
+        log "Cannot add $list_filepath to $ruleset_filepath" "error"
         rm -f "$tmpfile"
         return 1
     fi
 
-    mv "$tmpfile" "$filepath"
+    mv "$tmpfile" "$ruleset_filepath"
 }
 
-# Imports a plain domain list into a ruleset in chunks, validating domains and appending them as domain_suffix rules
+# Imports a plain domain list into a source rule set as domain_suffix rules
 import_plain_domain_list_to_local_source_ruleset_chunked() {
     local plain_list_filepath="$1"
     local ruleset_filepath="$2"
-    local chunk_size="${3:-1000}"
 
-    local array count json_array
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        [ -z "$line" ] && continue
-
-        if ! is_domain_suffix "$line"; then
-            log "'$line' is not a valid domain" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
-        else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to rule set at $ruleset_filepath" "debug"
-            json_array="$(comma_string_to_json_array "$array")"
-            patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
-            array=""
-            count=0
-        fi
-    done < "$plain_list_filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to rule set at $ruleset_filepath" "debug"
-        json_array="$(comma_string_to_json_array "$array")"
-        patch_source_ruleset_rules "$ruleset_filepath" "domain_suffix" "$json_array"
-    fi
+    local normalized
+    normalized="$(mktemp)"
+    normalize_plain_list "$plain_list_filepath" "$normalized" "domains"
+    log "Adding $(wc -l < "$normalized") domains to rule set at $ruleset_filepath" "debug"
+    add_list_file_to_source_ruleset "$normalized" "$ruleset_filepath" "domain_suffix"
+    local status=$?
+    rm -f "$normalized"
+    return $status
 }
 
-# Imports a plain IPv4/CIDR list into a ruleset in chunks, validating entries and appending them as ip_cidr rules
+# Imports a plain subnet list into a source rule set as ip_cidr rules
 import_plain_subnet_list_to_local_source_ruleset_chunked() {
     local plain_list_filepath="$1"
     local ruleset_filepath="$2"
-    local chunk_size="${3:-1000}"
 
-    local array count json_array
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-        [ -z "$line" ] && continue
-
-        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-            log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
-        else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to ruleset at $ruleset_filepath" "debug"
-            json_array="$(comma_string_to_json_array "$array")"
-            patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-            array=""
-            count=0
-        fi
-    done < "$plain_list_filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to ruleset at $ruleset_filepath" "debug"
-        json_array="$(comma_string_to_json_array "$array")"
-        patch_source_ruleset_rules "$ruleset_filepath" "ip_cidr" "$json_array"
-    fi
+    local normalized
+    normalized="$(mktemp)"
+    normalize_plain_list "$plain_list_filepath" "$normalized" "subnets"
+    log "Adding $(wc -l < "$normalized") subnets to rule set at $ruleset_filepath" "debug"
+    add_list_file_to_source_ruleset "$normalized" "$ruleset_filepath" "ip_cidr"
+    local status=$?
+    rm -f "$normalized"
+    return $status
 }
 
 # Determines the ruleset format based on the file extension (json → source, srs → binary)

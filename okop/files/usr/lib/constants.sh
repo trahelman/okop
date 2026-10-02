@@ -15,24 +15,35 @@ TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
 RULESET_CACHE_DEFAULT_PATH="/etc/okop/rulesets"
 # Remote rule sets of the current sing-box configuration: "<tag> <format> <url>" per line
 REMOTE_RULESETS_INDEX="$TMP_SING_BOX_FOLDER/remote_rulesets"
+# URLs of the plain-text and community subnet lists in use, to clean up the cached copies
+CACHED_LISTS_INDEX="$TMP_SING_BOX_FOLDER/cached_lists"
+# Held by the running lists update
+LIST_UPDATE_LOCK="/var/lock/okop_list_update"
+# Serializes start, stop, reload and restart
+OKOP_LOCK_FILE="/var/lock/okop.lock"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"
 RT_TABLE_NAME="okop"
-# DNS guard switches dnsmasq back to upstream servers after this many failed checks of sing-box DNS
+# DNS guard switches dnsmasq back to upstream servers and stops routing the lists to sing-box after this
+# many failed checks of sing-box DNS, and switches back after this many successful ones in a row
 DNS_GUARD_INTERVAL=5
 DNS_GUARD_MAX_FAILURES=3
+DNS_GUARD_MIN_SUCCESSES=3
 # A domain outside the routed lists, used to check that sing-box can still resolve through its own
 # upstream server and not just answer from its fake-IP pool. The threshold is higher than
 # DNS_GUARD_MAX_FAILURES so that a slow or briefly flaky upstream does not flip dnsmasq back and forth.
 DNS_PROBE_DOMAIN="openwrt.org"
 DNS_GUARD_MAX_UNRESOLVED=6
 DNS_GUARD_PID_FILE="/var/run/okop_dns_guard.pid"
+# Seconds start waits for sing-box to serve before it rolls back
+SING_BOX_START_TIMEOUT=30
 
 ## nft
 NFT_TABLE_NAME="OkopTable"
 NFT_LOCALV4_SET_NAME="localv4"
 NFT_COMMON_SET_NAME="okop_subnets"
+NFT_FULLY_ROUTED_CHAIN_NAME="fully_routed"
 NFT_DISCORD_SET_NAME="okop_discord_subnets"
 NFT_INTERFACE_SET_NAME="interfaces"
 NFT_FAKEIP_MARK="0x00100000"

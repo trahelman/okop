@@ -24,12 +24,6 @@ const validUrls = [
     'trojan://90caP481ay@127.0.0.1:59708?type=tcp&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&ech=AF3%2BDQBZAAAgACC2y%2BAe4dqthLNpfvmtE6g%2BnaJ%2FciK6P%2BREbRLkR%2Fg%2FEgAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D&sni=google.com#trojan-tcp-tls-ech',
   ],
 
-  // mKCP
-  [
-    'mKCP + none',
-    'trojan://N5v7iIOe9G@127.0.0.1:36319?type=kcp&headerType=none&seed=P91wFIfjzZ&security=none#trojan-mKCP',
-  ],
-
   // WebSocket
   [
     'ws + none',
@@ -87,15 +81,18 @@ const validUrls = [
     'httpupgrade + tls + ech',
     'trojan://ou8pLSyx9N@127.0.0.1:17737?type=httpupgrade&path=%2Fhttpupgradepath&host=google.com&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&ech=AF3%2BDQBZAAAgACB%2FlkIkit%2BblFzE7PtbYDVF3NXK8olXJ5a7YwY%2Biy9QQwAkAAEAAQABAAIAAQADAAIAAQACAAIAAgADAAMAAQADAAIAAwADAApnb29nbGUuY29tAAA%3D&sni=google.com#trojan-httpupgrade-tls-ech',
   ],
+];
 
-  // XHTTP
+const invalidUrls = [
+  // Xray-only, sing-box cannot connect with these
+  [
+    'mKCP + none',
+    'trojan://N5v7iIOe9G@127.0.0.1:36319?type=kcp&headerType=none&seed=P91wFIfjzZ&security=none#trojan-mKCP',
+  ],
   [
     'xhttp + none',
     'trojan://VEetltxLtw@127.0.0.1:59072?type=xhttp&path=%2Fxhttppath&host=google.com&mode=auto&security=none#trojan-xhttp',
   ],
-];
-
-const invalidUrls = [
   ['No prefix', 'uuid@host:443?type=tcp&security=tls'],
   ['No password', 'trojan://@127.0.0.1:443?type=tcp&security=tls'],
   ['No host', 'trojan://pass@:443?type=tcp&security=tls'],

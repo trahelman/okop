@@ -10,6 +10,8 @@ services:
         OPENWRT_PLATFORM: ${OPENWRT_PLATFORM:-linux/aarch64_generic}
     platform: ${OPENWRT_PLATFORM:-linux/aarch64_generic}
     privileged: true
+    # procd runs the K* scripts on shutdown, give them time like a real reboot does
+    stop_grace_period: 60s
     # Like on a real router: /tmp is RAM and is wiped on reboot
     tmpfs:
       - /tmp

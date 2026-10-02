@@ -30,42 +30,26 @@ nft_add_set_elements() {
     nft add element inet "$table" "$set" "{ $elements }"
 }
 
+# Adds the valid IPv4 addresses and subnets of a plain list file to an nft set, in chunks that stay under
+# the argument size limit
 nft_add_set_elements_from_file_chunked() {
     local filepath="$1"
     local nft_table_name="$2"
     local nft_set_name="$3"
     local chunk_size="${4:-5000}"
 
-    local array count
-    count=0
-    while IFS= read -r line; do
-        line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    local normalized chunk
+    normalized="$(mktemp)"
+    normalize_plain_list "$filepath" "$normalized" "subnets"
+    log "Adding $(wc -l < "$normalized") elements to nft set $nft_set_name" "debug"
 
-        [ -z "$line" ] && continue
+    awk -v size="$chunk_size" '
+        { printf "%s%s", ((NR - 1) % size == 0) ? "" : ",", $0 }
+        NR % size == 0 { print "" }
+        END { if (NR % size != 0) print "" }
+    ' "$normalized" | while IFS= read -r chunk; do
+        [ -n "$chunk" ] && nft_add_set_elements "$nft_table_name" "$nft_set_name" "$chunk"
+    done
 
-        if ! is_ipv4 "$line" && ! is_ipv4_cidr "$line"; then
-            log "'$line' is not IPv4 or IPv4 CIDR" "debug"
-            continue
-        fi
-
-        if [ -z "$array" ]; then
-            array="$line"
-        else
-            array="$array,$line"
-        fi
-
-        count=$((count + 1))
-
-        if [ "$count" = "$chunk_size" ]; then
-            log "Adding $count elements to nft set $nft_set_name" "debug"
-            nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
-            array=""
-            count=0
-        fi
-    done < "$filepath"
-
-    if [ -n "$array" ]; then
-        log "Adding $count elements to nft set $nft_set_name" "debug"
-        nft_add_set_elements "$nft_table_name" "$nft_set_name" "$array"
-    fi
+    rm -f "$normalized"
 }

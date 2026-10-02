@@ -15,11 +15,6 @@ const validUrls = [
     'tcp + tls',
     'vless://2e9e8288-060e-4da2-8b9f-a1c81826feb7@127.0.0.1:19316?type=tcp&encryption=none&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1&sni=google.com#vless-tcp-tls',
   ],
-  // mKCP
-  [
-    'mKCP + none',
-    'vless://72e201d7-7841-4a32-b266-4aa3eb776d51@127.0.0.1:17270?type=kcp&encryption=none&headerType=none&seed=AirziWi4ng&security=none#vless-mKCP',
-  ],
   // WebSocket
   [
     'ws + none',
@@ -47,14 +42,26 @@ const validUrls = [
     'httpupgrade + tls',
     'vless://76dbd0ff-1a35-4f0c-a9ba-3c5890b7dea6@127.0.0.1:50639?type=httpupgrade&encryption=none&path=%2Fhttpupgradepath&host=google.com&security=tls&sni=google.com#vless-httpupgrade-tls',
   ],
-  // XHTTP
-  [
-    'xhttp + none',
-    'vless://c2841505-ec32-4b8d-b6dd-3e19d648c321@127.0.0.1:45507?type=xhttp&encryption=none&path=%2Fxhttppath&host=xhttp&mode=auto&security=none#vless-xhttp',
-  ],
 ];
 
 const invalidUrls = [
+  // Xray-only, sing-box cannot connect with these
+  [
+    'mKCP',
+    'vless://72e201d7-7841-4a32-b266-4aa3eb776d51@127.0.0.1:17270?type=kcp&encryption=none&headerType=none&seed=AirziWi4ng&security=none#vless-mKCP',
+  ],
+  [
+    'xhttp',
+    'vless://c2841505-ec32-4b8d-b6dd-3e19d648c321@127.0.0.1:45507?type=xhttp&encryption=none&path=%2Fxhttppath&host=xhttp&mode=auto&security=none#vless-xhttp',
+  ],
+  [
+    'tcp + http header',
+    'vless://uuid@127.0.0.1:443?type=tcp&headerType=http&security=none',
+  ],
+  [
+    'VLESS encryption',
+    'vless://uuid@127.0.0.1:443?type=tcp&encryption=mlkem768x25519plus.native.0rtt.abc&security=none',
+  ],
   ['No prefix', 'uuid@host:443?type=tcp&security=tls'],
   ['No uuid', 'vless://@127.0.0.1:443?type=tcp&security=tls'],
   ['No host', 'vless://uuid@:443?type=tcp&security=tls'],

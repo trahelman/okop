@@ -59,23 +59,29 @@ export function validateVlessUrl(url: string): ValidationResult {
 
     const params = parseQueryString(queryString);
 
-    const validTypes = [
-      'tcp',
-      'raw',
-      'udp',
-      'grpc',
-      'http',
-      'httpupgrade',
-      'xhttp',
-      'ws',
-      'kcp',
-    ];
+    // Transports sing-box has and okop builds. mKCP, XHTTP and the others exist only in Xray: such a
+    // link was accepted and the section silently did not connect.
+    const validTypes = ['tcp', 'raw', 'grpc', 'httpupgrade', 'ws'];
     const validSecurities = ['tls', 'reality', 'none'];
 
     if (!params.type || !validTypes.includes(params.type))
       return {
         valid: false,
         message: 'Invalid VLESS URL: unsupported or missing type',
+      };
+
+    // HTTP header obfuscation of TCP is not built, the connection would go without it
+    if (params.headerType && params.headerType !== 'none')
+      return {
+        valid: false,
+        message: 'Invalid VLESS URL: unsupported headerType',
+      };
+
+    // VLESS encryption is an Xray feature, sing-box only speaks plain VLESS
+    if (params.encryption && params.encryption !== 'none')
+      return {
+        valid: false,
+        message: 'Invalid VLESS URL: unsupported encryption',
       };
 
     if (!params.security || !validSecurities.includes(params.security))

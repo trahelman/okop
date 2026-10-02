@@ -34,9 +34,20 @@ endef
 define Package/okop/prerm
 #!/bin/sh
 
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+
+# Runs before the generic prerm stops the service. Stopped first: the ip rule refers to the okop routing
+# table by name and cannot be deleted once the name is gone from rt_tables.
+/etc/init.d/okop stop
+
 grep -q "105 okop" /etc/iproute2/rt_tables && sed -i "/105 okop/d" /etc/iproute2/rt_tables
 
-/etc/init.d/okop stop
+if [ "$$PKG_UPGRADE" != "1" ]; then
+	# okop enabled sing-box with its own configuration, which refers to rule sets in /tmp. Left enabled,
+	# sing-box would fail to start at every boot.
+	uci -q set sing-box.main.enabled=0 && uci -q commit sing-box
+	/etc/init.d/sing-box stop
+fi
 
 exit 0
 endef
