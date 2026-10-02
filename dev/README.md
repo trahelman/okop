@@ -73,4 +73,5 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `init-reload-then-stop` | `service okop reload` (как при мониторинге интерфейсов), затем stop, start и restart: фоновые задачи не держат блокировку procd |
 | `mixed-remote-subnet-list` | Подсети извлекаются из rule-set, где правила с `ip_cidr` смешаны с другими |
 | `proxy-url-credentials` | Пароли и логины из ссылок на прокси попадают в конфиг без искажений |
+| `proxy-url-defaults` | trojan без `security=`, ss в base64url, ss с `plugin=`: outbound собирается правильно |
 | `proxy-url-transport` | Транспорт из ссылки (ws, grpc, httpupgrade) попадает в конфиг |

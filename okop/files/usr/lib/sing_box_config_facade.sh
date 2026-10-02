@@ -123,8 +123,7 @@ sing_box_cf_add_proxy_outbound() {
 
         userinfo=$(url_decode "$(url_get_userinfo "$url")")
         if ! is_shadowsocks_userinfo_format "$userinfo"; then
-            userinfo=$(base64_decode "$userinfo")
-            if [ $? -ne 0 ]; then
+            if ! userinfo=$(base64_decode "$userinfo") || ! is_shadowsocks_userinfo_format "$userinfo"; then
                 log "Cannot decode shadowsocks userinfo or it does not match the expected format. Aborted." "fatal"
                 exit 1
             fi
@@ -136,6 +135,24 @@ sing_box_cf_add_proxy_outbound() {
         method="${userinfo%%:*}"
         password="${userinfo#*:}"
 
+        # SIP002: plugin=<name>;<options>. Dropping it left an outbound without obfuscation that never connected.
+        local plugin_param plugin plugin_opts
+        plugin_param=$(url_get_query_param "$url" "plugin")
+        plugin="${plugin_param%%;*}"
+        case "$plugin_param" in
+        *";"*) plugin_opts="${plugin_param#*;}" ;;
+        *) plugin_opts="" ;;
+        esac
+        case "$plugin" in
+        "" | obfs-local | v2ray-plugin) ;;
+        simple-obfs) plugin="obfs-local" ;;
+        *)
+            log "Shadowsocks plugin '$plugin' is not supported (only obfs-local and v2ray-plugin). The outbound '$tag' will not connect" "error"
+            plugin=""
+            plugin_opts=""
+            ;;
+        esac
+
         config=$(
             sing_box_cm_add_shadowsocks_outbound \
                 "$config" \
@@ -145,7 +162,9 @@ sing_box_cf_add_proxy_outbound() {
                 "$method" \
                 "$password" \
                 "" \
-                "$([ "$udp_over_tcp" == "1" ] && echo 2)" # if udp_over_tcp is enabled, enable version 2
+                "$([ "$udp_over_tcp" == "1" ] && echo 2)" \
+                "$plugin" \
+                "$plugin_opts"
         )
         ;;
     trojan)
@@ -192,10 +211,12 @@ _add_outbound_security() {
     security=$(url_get_query_param "$url" "security")
     scheme="$(url_get_scheme "$url")"
 
+    # Hysteria2 and Trojan always run over TLS, and their links commonly omit security=. Without the
+    # default the outbound was built without TLS: the link looked valid and never connected.
     if [ -z "$security" ]; then
-        if [ "$scheme" = "hysteria2" ] || [ "$scheme" = "hy2" ]; then
-            security="tls"
-        fi
+        case "$scheme" in
+        hysteria2 | hy2 | trojan) security="tls" ;;
+        esac
     fi
 
     case "$security" in
@@ -253,7 +274,8 @@ _add_outbound_transport() {
     local transport
     transport=$(url_get_query_param "$url" "type")
     case "$transport" in
-    tcp | raw) ;;
+    # A link without type= uses plain TCP
+    "" | tcp | raw) ;;
     ws)
         local ws_path ws_host ws_early_data
         ws_path=$(url_get_query_param "$url" "path")

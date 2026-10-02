@@ -216,13 +216,20 @@ url_strip_fragment() {
 }
 
 # Decodes and returns a base64-encoded string
+# Decodes base64, also in the URL-safe alphabet and without padding: SIP002 shadowsocks links use
+# base64url, and BusyBox/coreutils base64 stop at "-" or "_", which silently cut the password short.
+# Returns non-zero when the input cannot be decoded.
 base64_decode() {
     local str="$1"
-    local decoded_url
 
-    decoded_url="$(echo "$str" | base64 -d 2> /dev/null)"
+    str="$(printf '%s' "$str" | tr -- '-_' '+/')"
+    case $((${#str} % 4)) in
+    2) str="$str==" ;;
+    3) str="$str=" ;;
+    1) return 1 ;;
+    esac
 
-    echo "$decoded_url"
+    printf '%s' "$str" | base64 -d 2> /dev/null
 }
 
 # Generates a unique 16-character ID based on the current timestamp and a random number
