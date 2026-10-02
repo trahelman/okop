@@ -102,7 +102,8 @@ function describeConnection(section_id) {
     lines.push(_("mixed proxy on port %s").format(get("mixed_proxy_port")));
   }
 
-  return E("div", {}, lines.map((line) => E("div", {}, line)));
+  // Arrays, not strings: LuCI inserts a string child as HTML, and these come from user input (link names)
+  return E("div", {}, lines.map((line) => E("div", {}, [line])));
 }
 
 function describeLists(section_id) {
@@ -145,7 +146,8 @@ function describeLists(section_id) {
     return E("em", {}, _("no lists"));
   }
 
-  return E("div", {}, lines.map((line) => E("div", {}, line)));
+  // Arrays, not strings: LuCI inserts a string child as HTML, and these come from user input (link names)
+  return E("div", {}, lines.map((line) => E("div", {}, [line])));
 }
 
 // Columns of the sections table, the options themselves are edited in the modal

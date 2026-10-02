@@ -34,7 +34,7 @@ export function coreService() {
           line.toLowerCase().includes('[error]') ||
           line.toLowerCase().includes('[fatal]')
         ) {
-          ui.addNotification('Okop Error', E('div', {}, line), 'error');
+          ui.addNotification('Okop Error', E('div', {}, [line]), 'error');
         }
       },
     },

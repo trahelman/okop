@@ -637,9 +637,7 @@ var OkopShellMethods = {
   checkDNSAvailable: async () => callBaseMethod(
     Okop.AvailableMethods.CHECK_DNS_AVAILABLE
   ),
-  checkFakeIP: async () => callBaseMethod(
-    Okop.AvailableMethods.CHECK_FAKEIP
-  ),
+  checkFakeIP: async () => callBaseMethod(Okop.AvailableMethods.CHECK_FAKEIP),
   checkNftRules: async () => callBaseMethod(
     Okop.AvailableMethods.CHECK_NFT_RULES
   ),
@@ -676,11 +674,7 @@ var OkopShellMethods = {
     [],
     "/etc/init.d/okop"
   ),
-  stop: async () => callBaseMethod(
-    Okop.AvailableMethods.STOP,
-    [],
-    "/etc/init.d/okop"
-  ),
+  stop: async () => callBaseMethod(Okop.AvailableMethods.STOP, [], "/etc/init.d/okop"),
   enable: async () => callBaseMethod(
     Okop.AvailableMethods.ENABLE,
     [],
@@ -694,9 +688,7 @@ var OkopShellMethods = {
   globalCheck: async () => callBaseMethod(Okop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () => callBaseMethod(Okop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLogs: async () => callBaseMethod(Okop.AvailableMethods.CHECK_LOGS),
-  getSystemInfo: async () => callBaseMethod(
-    Okop.AvailableMethods.GET_SYSTEM_INFO
-  )
+  getSystemInfo: async () => callBaseMethod(Okop.AvailableMethods.GET_SYSTEM_INFO)
 };
 
 // src/okop/methods/custom/getDashboardSections.ts
@@ -1522,10 +1514,7 @@ var OkopLogWatcher = class _OkopLogWatcher {
     }
     this.running = true;
     this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
-    logger.info(
-      "[OkopLogWatcher]",
-      `started (interval: ${this.intervalMs}ms)`
-    );
+    logger.info("[OkopLogWatcher]", `started (interval: ${this.intervalMs}ms)`);
   }
   stop() {
     if (!this.running) return;
@@ -1574,7 +1563,7 @@ function coreService() {
       intervalMs: 3e3,
       onNewLog: (line) => {
         if (line.toLowerCase().includes("[error]") || line.toLowerCase().includes("[fatal]")) {
-          ui.addNotification("Okop Error", E("div", {}, line), "error");
+          ui.addNotification("Okop Error", E("div", {}, [line]), "error");
         }
       }
     }
@@ -1773,13 +1762,11 @@ function renderDefaultState({
         click: () => section.withTagSelect && onChooseOutbound(section.code, outbound.code)
       },
       [
-        E("b", {}, outbound.displayName),
+        E("b", {}, [outbound.displayName]),
         E("div", { class: "pdk_dashboard-page__outbound-grid__item__footer" }, [
-          E(
-            "div",
-            { class: "pdk_dashboard-page__outbound-grid__item__type" },
+          E("div", { class: "pdk_dashboard-page__outbound-grid__item__type" }, [
             outbound.type
-          ),
+          ]),
           E(
             "div",
             { class: getLatencyClass() },
@@ -3461,7 +3448,7 @@ function renderModal(text, name) {
     "div",
     { class: "pdk-partial-modal__body" },
     E("div", {}, [
-      E("pre", { class: "pdk-partial-modal__content" }, E("code", {}, text)),
+      E("pre", { class: "pdk-partial-modal__content" }, E("code", {}, [text])),
       E("div", { class: "pdk-partial-modal__footer" }, [
         renderButton({
           classNames: ["cbi-button-apply"],
@@ -3610,7 +3597,7 @@ function renderCheckSummary(items) {
       {
         class: `pdk_diagnostic_alert__summary__item pdk_diagnostic_alert__summary__item--${item.state}`
       },
-      [getIcon(), E("b", {}, item.key), E("div", {}, item.value)]
+      [getIcon(), E("b", {}, [item.key]), E("div", {}, [item.value])]
     );
   });
   return E("div", { class: "pdk_diagnostic_alert__summary" }, renderedItems);
@@ -3624,7 +3611,7 @@ function renderLoadingState3(props) {
     [
       iconWrap,
       E("div", { class: "pdk_diagnostic_alert__content" }, [
-        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E("b", { class: "pdk_diagnostic_alert__title" }, [props.title]),
         E(
           "div",
           { class: "pdk_diagnostic_alert__description" },
@@ -3645,7 +3632,7 @@ function renderWarningState(props) {
     [
       iconWrap,
       E("div", { class: "pdk_diagnostic_alert__content" }, [
-        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E("b", { class: "pdk_diagnostic_alert__title" }, [props.title]),
         E(
           "div",
           { class: "pdk_diagnostic_alert__description" },
@@ -3666,7 +3653,7 @@ function renderErrorState(props) {
     [
       iconWrap,
       E("div", { class: "pdk_diagnostic_alert__content" }, [
-        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E("b", { class: "pdk_diagnostic_alert__title" }, [props.title]),
         E(
           "div",
           { class: "pdk_diagnostic_alert__description" },
@@ -3687,7 +3674,7 @@ function renderSuccessState(props) {
     [
       iconWrap,
       E("div", { class: "pdk_diagnostic_alert__content" }, [
-        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E("b", { class: "pdk_diagnostic_alert__title" }, [props.title]),
         E(
           "div",
           { class: "pdk_diagnostic_alert__description" },
@@ -3708,7 +3695,7 @@ function renderSkippedState(props) {
     [
       iconWrap,
       E("div", { class: "pdk_diagnostic_alert__content" }, [
-        E("b", { class: "pdk_diagnostic_alert__title" }, props.title),
+        E("b", { class: "pdk_diagnostic_alert__title" }, [props.title]),
         E(
           "div",
           { class: "pdk_diagnostic_alert__description" },
@@ -3777,10 +3764,10 @@ function renderSystemInfo({ items }) {
         "div",
         { class: "pdk_diagnostic-page__right-bar__system-info__row" },
         [
-          E("b", {}, item.key),
+          E("b", {}, [item.key]),
           E("div", {}, [
-            E("span", {}, item.value),
-            E("span", { class: tagClass }, item?.tag?.label)
+            E("span", {}, [item.value]),
+            E("span", { class: tagClass }, [item?.tag?.label ?? ""])
           ])
         ]
       );
@@ -3943,9 +3930,7 @@ function getOkopVersionRow(diagnosticsSystemInfo) {
   const loading = diagnosticsSystemInfo.loading;
   const unknown = isUnknownVersion(diagnosticsSystemInfo.okop_version);
   const hasActualVersion = Boolean(diagnosticsSystemInfo.okop_latest_version) && !isUnknownVersion(diagnosticsSystemInfo.okop_latest_version);
-  const version = normalizeCompiledVersion(
-    diagnosticsSystemInfo.okop_version
-  );
+  const version = normalizeCompiledVersion(diagnosticsSystemInfo.okop_version);
   const isDevVersion = version === "dev";
   if (loading || unknown || !hasActualVersion || isDevVersion) {
     return {
