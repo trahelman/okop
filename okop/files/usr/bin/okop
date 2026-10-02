@@ -483,14 +483,35 @@ dnsmasq_configure() {
     uci_add_list "dhcp" "@dnsmasq[0]" "server" "$SB_DNS_INBOUND_ADDRESS"
     uci_set "dhcp" "@dnsmasq[0]" "noresolv" 1
     uci_set "dhcp" "@dnsmasq[0]" "cachesize" 0
+    uci_set "dhcp" "@dnsmasq[0]" "okop_switched" 1
     uci_commit "dhcp"
 
     /etc/init.d/dnsmasq restart
 }
 
+# Whether okop itself pointed dnsmasq at sing-box. The okop_* backups also count: versions before the
+# okop_switched marker left only them.
+dnsmasq_switched_by_okop() {
+    local key
+    for key in okop_switched okop_server okop_noresolv okop_cachesize; do
+        [ -n "$(uci_get "dhcp" "@dnsmasq[0]" "$key")" ] && return 0
+    done
+
+    return 1
+}
+
 dnsmasq_restore() {
     if ! dnsmasq_uses_sing_box; then
         log "dnsmasq does not use sing-box, restoring of dnsmasq is not required" "debug"
+        return 0
+    fi
+
+    # With dont_touch_dhcp the user may point dnsmasq at sing-box by hand (docs/dns.md). That setup is
+    # theirs: only a switch okop made itself, e.g. before the option was enabled, is undone.
+    local dont_touch_dhcp
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    if [ "$dont_touch_dhcp" -eq 1 ] && ! dnsmasq_switched_by_okop; then
+        log "dnsmasq was pointed at sing-box by hand, dont_touch_dhcp is enabled, leaving it as it is" "debug"
         return 0
     fi
 
@@ -510,6 +531,7 @@ dnsmasq_restore() {
         uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
     done
     uci_remove "dhcp" "@dnsmasq[0]" "okop_server" 2> /dev/null
+    uci_remove "dhcp" "@dnsmasq[0]" "okop_switched" 2> /dev/null
 
     restore_dnsmasq_config_option "noresolv" "okop_noresolv"
     restore_dnsmasq_config_option "cachesize" "okop_cachesize"

@@ -63,4 +63,5 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `cli-returns-promptly` | `okop reload` и `okop restart` через пайп (как по SSH без терминала) не ждут фоновых задач |
 | `damaged-cached-list` | Сохранённый список повреждён, GitHub недоступен |
 | `direct-download-fallback` | Прокси для скачивания списков не работает: прямое скачивание только при включённой настройке |
+| `dont-touch-dhcp-manual-setup` | «Не трогать мой DHCP!» с dnsmasq, настроенным на sing-box вручную: okop не трогает эти настройки |
 | `dhcp-user-settings-preserved` | Ручные перенаправления DNS и другие настройки dnsmasq работают при включённом okop и точно восстанавливаются после его остановки |
