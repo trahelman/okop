@@ -273,8 +273,20 @@ _add_outbound_transport() {
             sing_box_cm_set_grpc_transport_for_outbound "$config" "$outbound_tag" "$grpc_service_name"
         )
         ;;
+    httpupgrade)
+        local httpupgrade_path httpupgrade_host
+        httpupgrade_path=$(url_get_query_param "$url" "path")
+        httpupgrade_host=$(url_get_query_param "$url" "host")
+
+        config=$(
+            sing_box_cm_set_httpupgrade_transport_for_outbound \
+                "$config" "$outbound_tag" "$httpupgrade_path" "$httpupgrade_host"
+        )
+        ;;
     *)
-        log "Unknown transport '$transport' detected." "error"
+        # The outbound is left without a transport, so it cannot connect. Said plainly, because the
+        # section otherwise looks saved and healthy everywhere else.
+        log "Transport '$transport' is not supported. The outbound '$outbound_tag' has no transport and will not connect" "error"
         ;;
     esac
 
