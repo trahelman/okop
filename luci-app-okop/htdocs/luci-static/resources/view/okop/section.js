@@ -872,6 +872,9 @@ function createSectionContent(section) {
     ),
   );
   o.rmempty = false;
+  // Without this a typo is saved and okop then aborts the start, leaving the traffic interception
+  // in place with no sing-box behind it
+  o.datatype = "port";
   o.depends("mixed_proxy_enabled", "1");
 
   o = section.taboption(
