@@ -227,5 +227,13 @@ extract_ip_cidr_from_json_ruleset_to_file() {
     local output_file="$2"
 
     log "Extracting ip_cidr entries from $json_file to $output_file" "debug"
-    jq -r '.rules[].ip_cidr[]' "$json_file" > "$output_file"
+    # "?" at both levels: a rule set may mix ip_cidr rules with domain rules, and the community lists
+    # this project ships do. Without it jq stops at the first rule that has no ip_cidr and nothing,
+    # or only the part before that rule, is extracted
+    if ! jq -r '.rules[]? | .ip_cidr[]?' "$json_file" > "$output_file"; then
+        log "Cannot extract ip_cidr entries from $json_file" "error"
+        return 1
+    fi
+
+    log "Extracted $(wc -l < "$output_file") ip_cidr entries" "debug"
 }
