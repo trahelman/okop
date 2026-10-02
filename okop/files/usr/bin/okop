@@ -194,40 +194,53 @@ stop_main() {
     /etc/init.d/sing-box stop
 }
 
+# dont_touch_dhcp says "do not switch dnsmasq to sing-box", so only switching obeys it.
+# dnsmasq_restore must never be skipped: it is the only code that puts the user's DNS settings back,
+# and it already does nothing when dnsmasq does not point at sing-box.
+dns_guard_start_if_allowed() {
+    local dont_touch_dhcp
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+
+    if [ "$dont_touch_dhcp" -eq 0 ]; then
+        dns_guard_start
+    else
+        log "dont_touch_dhcp is enabled, dnsmasq is left alone" "debug"
+    fi
+}
+
 start() {
     # A guard of a previous start must not reconfigure dnsmasq concurrently
     dns_guard_stop
 
-    local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        # After a reboot or a crash dnsmasq may still point to sing-box that is not running yet
-        dnsmasq_restore
-    fi
+    # After a reboot or a crash dnsmasq may still point to sing-box that is not running yet
+    dnsmasq_restore
 
     start_main
 
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dns_guard_start
-    fi
+    dns_guard_start_if_allowed
 }
 
 stop() {
     dns_guard_stop
 
-    local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dnsmasq_restore
-    fi
+    dnsmasq_restore
 
     stop_main
 }
 
 reload() {
     log "Okop reload"
+
+    # Same handling as start. Without it a reload left dnsmasq on the upstream servers, so nothing
+    # from the lists was routed although every status check reported a healthy okop. Restoring
+    # before stop_main also keeps the LAN resolving while sing-box is down.
+    dns_guard_stop
+    dnsmasq_restore
+
     stop_main
     start_main
+
+    dns_guard_start_if_allowed
 }
 
 restart() {

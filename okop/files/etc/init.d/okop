@@ -27,6 +27,18 @@ stop_service() {
     /usr/bin/okop stop
 }
 
+# The "Disable" button in LuCI Diagnostics calls this. Only removing the rc.d links left dnsmasq
+# forwarding to sing-box, whose autostart okop also disables, so after a reboot nothing restored the
+# user's DNS settings and the whole LAN stopped resolving.
+disable() {
+    "$initscript" stop
+
+    local name
+    name="$(basename "$initscript")"
+    rm -f "$IPKG_INSTROOT"/etc/rc.d/S??"$name"
+    rm -f "$IPKG_INSTROOT"/etc/rc.d/K??"$name"
+}
+
 reload_service() {
     /usr/bin/okop reload > /dev/null 2>&1
 }
