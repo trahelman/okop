@@ -128,6 +128,10 @@ start_main() {
     mkdir -p "$(get_ruleset_cache_path)"
     cleanup_previous_run
 
+    # Every "exit" from here until sing-box is started leaves the interception without sing-box behind it.
+    # Exits inside $(...) do not run the trap, the subshell resets it.
+    trap start_rollback EXIT
+
     # base
     route_table_rule_mark
     create_nft_rules
@@ -138,11 +142,31 @@ start_main() {
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
+    trap - EXIT
+
     log "Nice"
     # Detached from the caller's stdin/stdout, otherwise "okop reload" over SSH waits for list_update to finish.
     # Messages still go to the system log.
     run_detached list_update
     echo $! > /var/run/okop_list_update.pid
+}
+
+# A start that fails after the nft rules are in place is worse than okop not running at all: packets
+# to okop_subnets and to the fake-IP range are still marked and tproxy'd to a sing-box that is not
+# listening, so they are blackholed, while domains resolve to real addresses and leave in the clear.
+# Undoing the interception turns a broken configuration into "okop is simply off".
+start_rollback() {
+    log "Start failed, removing the traffic interception" "error"
+
+    if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
+        nft delete table inet "$NFT_TABLE_NAME"
+    fi
+
+    if ip rule list | grep -q "$RT_TABLE_NAME"; then
+        ip rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2> /dev/null
+    fi
+
+    dnsmasq_restore
 }
 
 # A previous run may have ended without "okop stop" (crash, OOM kill, a second start). Its rule sets in /tmp
@@ -1567,7 +1591,16 @@ sing_box_save_config() {
     log "Temporary sing-box config hash: $temp_config_hash" "debug"
     if [ "$current_config_hash" != "$temp_config_hash" ]; then
         log "sing-box configuration has changed and will be updated"
-        mv "$temp_file_path" "$sing_box_config_path"
+
+        # config_path is a free-text setting, so its directory may not exist. An unchecked mv left
+        # sing-box pointed at a file that was never written: it crash-looped while okop logged
+        # nothing but an untagged "mv: can't rename", and the apply looked successful.
+        mkdir -p "$(dirname "$sing_box_config_path")"
+        if ! mv "$temp_file_path" "$sing_box_config_path"; then
+            log "Cannot write the sing-box configuration to $sing_box_config_path. Aborted." "fatal"
+            rm -f "$temp_file_path"
+            exit 1
+        fi
     else
         log "sing-box configuration is unchanged"
         rm "$temp_file_path"
