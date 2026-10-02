@@ -1,7 +1,8 @@
 # Community lists routed through the dev proxy, lists are downloaded through the same proxy
 config settings 'settings'
 	option dns_type 'udp'
-	option dns_server '1.1.1.1'
+	# Not 1.1.1.1: UDP/53 to it is blackholed on some Docker hosts, which made DNS flaky
+	option dns_server '77.88.8.8'
 	option bootstrap_dns_server '77.88.8.8'
 	option dns_rewrite_ttl '60'
 	list source_network_interfaces 'br-lan'
