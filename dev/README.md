@@ -65,3 +65,11 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `direct-download-fallback` | Прокси для скачивания списков не работает: прямое скачивание только при включённой настройке |
 | `dont-touch-dhcp-manual-setup` | «Не трогать мой DHCP!» с dnsmasq, настроенным на sing-box вручную: okop не трогает эти настройки |
 | `dhcp-user-settings-preserved` | Ручные перенаправления DNS и другие настройки dnsmasq работают при включённом okop и точно восстанавливаются после его остановки |
+| `dnsmasq-restored-when-disabled` | «Не трогать мой DHCP!» включили при работающем okop или okop выключили кнопкой: настройки dnsmasq возвращаются |
+| `reload-keeps-lists-routed` | После `reload` dnsmasq снова направляет запросы в sing-box, домены из списков маршрутизируются |
+| `dns-guard-detects-dead-upstream` | DNS-сервер sing-box недоступен: защита DNS возвращает dnsmasq на обычные серверы |
+| `failed-start-leaves-no-blackhole` | Неудачный запуск снимает перехват и возвращает dnsmasq |
+| `init-reload-then-stop` | `service okop reload` (как при мониторинге интерфейсов), затем stop, start и restart: фоновые задачи не держат блокировку procd |
+| `mixed-remote-subnet-list` | Подсети извлекаются из rule-set, где правила с `ip_cidr` смешаны с другими |
+| `proxy-url-credentials` | Пароли и логины из ссылок на прокси попадают в конфиг без искажений |
+| `proxy-url-transport` | Транспорт из ссылки (ws, grpc, httpupgrade) попадает в конфиг |
