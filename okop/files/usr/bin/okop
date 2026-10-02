@@ -985,7 +985,21 @@ sing_box_configure_outbounds() {
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    config_foreach configure_outbound_handler "section"
+    config_foreach generate_for_section "section" configure_outbound_handler
+}
+
+# Runs a per-section step of the config generation and stops naming the section when the step broke the
+# config: a jq error anywhere empties it, and the start would otherwise only report an invalid config
+generate_for_section() {
+    local section="$1"
+    local step="$2"
+
+    "$step" "$section"
+
+    if [ -z "$config" ]; then
+        log "Section '$section': its settings could not be turned into a sing-box configuration ($step). Check the proxy link, ports and JSON of this section. Aborted." "fatal"
+        exit 1
+    fi
 }
 
 configure_outbound_handler() {
@@ -1213,7 +1227,7 @@ sing_box_configure_route() {
 
     config_foreach include_source_ips_in_routing_handler "section"
 
-    config_foreach configure_routing_for_section_lists "section"
+    config_foreach generate_for_section "section" configure_routing_for_section_lists
 }
 
 include_source_ips_in_routing_handler() {
@@ -1699,7 +1713,7 @@ sing_box_additional_inbounds() {
         )
     fi
 
-    config_foreach configure_section_mixed_proxy "section"
+    config_foreach generate_for_section "section" configure_section_mixed_proxy
 }
 
 configure_section_mixed_proxy() {
@@ -1762,8 +1776,17 @@ sing_box_save_config() {
 sing_box_config_check() {
     local config_path="$1"
 
-    if ! sing-box -c "$config_path" check > /dev/null 2>&1; then
-        log "Sing-box configuration $config_path is invalid. Aborted." "fatal"
+    # An empty file means the generation failed earlier: a jq error empties the config being built
+    if [ ! -s "$config_path" ] || [ "$(jq -r 'type' "$config_path" 2> /dev/null)" != "object" ]; then
+        log "The sing-box configuration could not be generated, see the errors above. Aborted." "fatal"
+        rm -f "$config_path"
+        exit 1
+    fi
+
+    local check_output
+    if ! check_output="$(sing-box -c "$config_path" check 2>&1)"; then
+        log "sing-box rejected the configuration: $(printf '%s' "$check_output" | sed 's/\x1b\[[0-9;]*m//g' | tail -n 3 | tr '\n' ' '). Aborted." "fatal"
+        rm -f "$config_path"
         exit 1
     fi
 }
