@@ -259,20 +259,6 @@ stop_main() {
     /etc/init.d/sing-box stop
 }
 
-# dont_touch_dhcp says "do not switch dnsmasq to sing-box", so only switching obeys it.
-# dnsmasq_restore must never be skipped: it is the only code that puts the user's DNS settings back,
-# and it already does nothing when dnsmasq does not point at sing-box.
-dns_guard_start_if_allowed() {
-    local dont_touch_dhcp
-    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
-
-    if [ "$dont_touch_dhcp" -eq 0 ]; then
-        dns_guard_start
-    else
-        log "dont_touch_dhcp is enabled, dnsmasq is left alone" "debug"
-    fi
-}
-
 start() {
     # A guard of a previous start must not reconfigure dnsmasq concurrently
     dns_guard_stop
@@ -282,7 +268,7 @@ start() {
 
     start_main
 
-    dns_guard_start_if_allowed
+    dns_guard_start
 }
 
 stop() {
@@ -305,7 +291,7 @@ reload() {
     stop_main
     start_main
 
-    dns_guard_start_if_allowed
+    dns_guard_start
 }
 
 restart() {
@@ -683,10 +669,33 @@ sing_box_dns_resolves() {
         grep -qE '^[0-9]+(\.[0-9]+){3}$'
 }
 
-# Keeps LAN DNS working: dnsmasq uses sing-box only while sing-box both answers DNS queries and can
-# still resolve through its upstream server
+# Marked traffic is routed to sing-box only while sing-box is running. Without the rule the marked
+# packets take the main routing table, i.e. go out directly instead of into a dead tproxy port.
+interception_attach() {
+    if ! ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
+        log "sing-box is back, routing the lists through it again"
+        ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
+    fi
+}
+
+interception_detach() {
+    if ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
+        log "sing-box is down, traffic to the lists goes directly until it is back" "error"
+        delete_mark_rules
+    fi
+}
+
+# Keeps the LAN working while sing-box is down: traffic to the lists is not sent to it, and dnsmasq uses
+# sing-box only while sing-box both answers DNS queries and can still resolve through its upstream
+# server. dont_touch_dhcp says "do not switch dnsmasq to sing-box", so only switching obeys it;
+# dnsmasq_restore puts the user's settings back and does nothing when dnsmasq does not point at sing-box.
 dns_guard() {
-    local failures=0 unresolved=0 stopping=0
+    local failures=0 unresolved=0 stopping=0 successes manage_dnsmasq=1 dont_touch_dhcp
+    # start has just seen sing-box serving, one more answer is enough
+    successes=$((DNS_GUARD_MIN_SUCCESSES - 1))
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    [ "$dont_touch_dhcp" -eq 1 ] && manage_dnsmasq=0
 
     # Finish the current step on TERM, so that dnsmasq is never left half-configured
     trap 'stopping=1' TERM
@@ -694,6 +703,7 @@ dns_guard() {
     while [ "$stopping" -eq 0 ]; do
         if sing_box_dns_available; then
             failures=0
+            successes=$((successes + 1))
             if sing_box_dns_resolves; then
                 unresolved=0
             else
@@ -701,21 +711,27 @@ dns_guard() {
             fi
         else
             failures=$((failures + 1))
+            successes=0
             unresolved=0
         fi
 
         if [ "$failures" -ge "$DNS_GUARD_MAX_FAILURES" ]; then
-            if dnsmasq_uses_sing_box; then
+            interception_detach
+            if [ "$manage_dnsmasq" -eq 1 ] && dnsmasq_uses_sing_box; then
                 log "sing-box DNS is unavailable, switching dnsmasq back to the upstream DNS servers" "error"
                 dnsmasq_restore
             fi
-        elif [ "$unresolved" -ge "$DNS_GUARD_MAX_UNRESOLVED" ]; then
-            if dnsmasq_uses_sing_box; then
-                log "sing-box cannot resolve $DNS_PROBE_DOMAIN, its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
-                dnsmasq_restore
-            fi
-        elif [ "$failures" -eq 0 ] && [ "$unresolved" -eq 0 ]; then
-            if ! dnsmasq_uses_sing_box; then
+        elif [ "$successes" -ge "$DNS_GUARD_MIN_SUCCESSES" ]; then
+            # A sing-box that procd keeps respawning answers for a moment between crashes
+            interception_attach
+            if [ "$manage_dnsmasq" -eq 0 ]; then
+                :
+            elif [ "$unresolved" -ge "$DNS_GUARD_MAX_UNRESOLVED" ]; then
+                if dnsmasq_uses_sing_box; then
+                    log "sing-box cannot resolve $DNS_PROBE_DOMAIN, its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
+                    dnsmasq_restore
+                fi
+            elif [ "$unresolved" -eq 0 ] && ! dnsmasq_uses_sing_box; then
                 log "sing-box DNS is available, switching dnsmasq to sing-box"
                 dnsmasq_configure
             fi

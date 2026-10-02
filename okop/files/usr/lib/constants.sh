@@ -25,9 +25,11 @@ CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampeteli
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"
 RT_TABLE_NAME="okop"
-# DNS guard switches dnsmasq back to upstream servers after this many failed checks of sing-box DNS
+# DNS guard switches dnsmasq back to upstream servers and stops routing the lists to sing-box after this
+# many failed checks of sing-box DNS, and switches back after this many successful ones in a row
 DNS_GUARD_INTERVAL=5
 DNS_GUARD_MAX_FAILURES=3
+DNS_GUARD_MIN_SUCCESSES=3
 # A domain outside the routed lists, used to check that sing-box can still resolve through its own
 # upstream server and not just answer from its fake-IP pool. The threshold is higher than
 # DNS_GUARD_MAX_FAILURES so that a slow or briefly flaky upstream does not flip dnsmasq back and forth.
