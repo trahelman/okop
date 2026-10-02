@@ -835,6 +835,47 @@ sing_box_cm_set_ws_transport_for_outbound() {
 }
 
 #######################################
+# Set an HTTPUpgrade transport for an outbound in a sing-box JSON configuration.
+# Arguments:
+#   config: string (JSON), sing-box configuration to modify
+#   tag: string, identifier of the outbound to modify
+#   path: string, HTTP path (optional)
+#   host: string, host sent in the upgrade request (optional)
+# Outputs:
+#   Writes updated JSON configuration to stdout
+# Example:
+#   CONFIG=$(
+#       sing_box_cm_set_httpupgrade_transport_for_outbound "$CONFIG" "vless-out" "/path" "google.com"
+#   )
+#######################################
+sing_box_cm_set_httpupgrade_transport_for_outbound() {
+    local config="$1"
+    local tag="$2"
+    local path="$3"
+    local host="$4"
+
+    echo "$config" | jq \
+        --arg tag "$tag" \
+        --arg path "$path" \
+        --arg host "$host" \
+        '.outbounds |= map(
+            if .tag == $tag then
+                . + {
+                    transport: (
+                        {
+                            type: "httpupgrade",
+                            path: $path
+                        }
+                        + (if $host != "" then {host: $host} else {} end)
+                    )
+                }
+            else
+                .
+            end
+        )'
+}
+
+#######################################
 # Set TLS settings for an outbound in a sing-box JSON configuration.
 # Arguments:
 #   config: string (JSON), sing-box configuration to modify

@@ -2770,8 +2770,8 @@ async function runFakeIPCheck() {
     browserFakeIP: checkFakeIPResponse.success && checkFakeIPResponse.data.fakeip,
     differentIP: checkFakeIPResponse.success && checkIPResponse.success && checkFakeIPResponse.data.IP !== checkIPResponse.data.IP
   };
-  const allGood = checks.router || checks.browserFakeIP || checks.differentIP;
-  const atLeastOneGood = checks.router && checks.browserFakeIP && checks.differentIP;
+  const allGood = checks.router && checks.browserFakeIP && checks.differentIP;
+  const atLeastOneGood = checks.router || checks.browserFakeIP || checks.differentIP;
   const { state, description } = getMeta({ atLeastOneGood, allGood });
   updateCheckStore({
     order,
