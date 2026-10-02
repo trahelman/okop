@@ -530,15 +530,27 @@ okop_background_job_running() {
     tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "/usr/bin/okop"
 }
 
-# sing-box answers the fakeip test domain by itself, so the check does not depend on internet access
+# sing-box answers the fakeip test domain from its own fake-IP pool, without contacting anything, so
+# this check does not depend on internet access. It only proves that sing-box is alive and serving DNS.
 sing_box_dns_available() {
     dig +short +time=1 +tries=1 @"$SB_DNS_INBOUND_ADDRESS" "$FAKEIP_TEST_DOMAIN" A 2> /dev/null |
         grep -qE '^[0-9]+(\.[0-9]+){3}$'
 }
 
-# Keeps LAN DNS working: dnsmasq uses sing-box only while sing-box answers DNS queries
+# Whether sing-box can still resolve a domain that is not in the routed lists, i.e. one it has to
+# forward to the configured DNS server. Being alive does not imply this: a blocked or dead dns_server
+# leaves the whole LAN unable to resolve anything while sing-box keeps answering the check above.
+# If the probe domain happens to be in one of the user's lists, the answer is a fake IP, which is
+# still an answer -- the check then proves nothing and deliberately counts as success.
+sing_box_dns_resolves() {
+    dig +short +time=3 +tries=1 @"$SB_DNS_INBOUND_ADDRESS" "$DNS_PROBE_DOMAIN" A 2> /dev/null |
+        grep -qE '^[0-9]+(\.[0-9]+){3}$'
+}
+
+# Keeps LAN DNS working: dnsmasq uses sing-box only while sing-box both answers DNS queries and can
+# still resolve through its upstream server
 dns_guard() {
-    local failures=0 stopping=0
+    local failures=0 unresolved=0 stopping=0
 
     # Finish the current step on TERM, so that dnsmasq is never left half-configured
     trap 'stopping=1' TERM
@@ -546,15 +558,30 @@ dns_guard() {
     while [ "$stopping" -eq 0 ]; do
         if sing_box_dns_available; then
             failures=0
-            if ! dnsmasq_uses_sing_box; then
-                log "sing-box DNS is available, switching dnsmasq to sing-box"
-                dnsmasq_configure
+            if sing_box_dns_resolves; then
+                unresolved=0
+            else
+                unresolved=$((unresolved + 1))
             fi
         else
             failures=$((failures + 1))
-            if [ "$failures" -ge "$DNS_GUARD_MAX_FAILURES" ] && dnsmasq_uses_sing_box; then
+            unresolved=0
+        fi
+
+        if [ "$failures" -ge "$DNS_GUARD_MAX_FAILURES" ]; then
+            if dnsmasq_uses_sing_box; then
                 log "sing-box DNS is unavailable, switching dnsmasq back to the upstream DNS servers" "error"
                 dnsmasq_restore
+            fi
+        elif [ "$unresolved" -ge "$DNS_GUARD_MAX_UNRESOLVED" ]; then
+            if dnsmasq_uses_sing_box; then
+                log "sing-box cannot resolve $DNS_PROBE_DOMAIN, its DNS server is probably unreachable. Switching dnsmasq back to the upstream DNS servers" "error"
+                dnsmasq_restore
+            fi
+        elif [ "$failures" -eq 0 ] && [ "$unresolved" -eq 0 ]; then
+            if ! dnsmasq_uses_sing_box; then
+                log "sing-box DNS is available, switching dnsmasq to sing-box"
+                dnsmasq_configure
             fi
         fi
 

@@ -22,6 +22,11 @@ RT_TABLE_NAME="okop"
 # DNS guard switches dnsmasq back to upstream servers after this many failed checks of sing-box DNS
 DNS_GUARD_INTERVAL=5
 DNS_GUARD_MAX_FAILURES=3
+# A domain outside the routed lists, used to check that sing-box can still resolve through its own
+# upstream server and not just answer from its fake-IP pool. The threshold is higher than
+# DNS_GUARD_MAX_FAILURES so that a slow or briefly flaky upstream does not flip dnsmasq back and forth.
+DNS_PROBE_DOMAIN="openwrt.org"
+DNS_GUARD_MAX_UNRESOLVED=6
 DNS_GUARD_PID_FILE="/var/run/okop_dns_guard.pid"
 
 ## nft
