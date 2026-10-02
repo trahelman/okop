@@ -29,6 +29,9 @@ msgstr "✘ Отключено"
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
 
+msgid "A section named %s already exists"
+msgstr "Секция с именем %s уже существует"
+
 msgid "Active Connections"
 msgstr "Активные соединения"
 
@@ -61,6 +64,9 @@ msgstr "Bootstrap DNS"
 
 msgid "Bootstrap DNS server"
 msgstr "Bootstrap DNS-сервер"
+
+msgid "Bootstrap DNS server must be an IPv4 address"
+msgstr "Bootstrap DNS-сервер должен быть IPv4-адресом"
 
 msgid "Browser is not using FakeIP"
 msgstr "Браузер не использует FakeIP"
@@ -130,9 +136,6 @@ msgstr "Дашборд сейчас недоступен"
 
 msgid "Delay in milliseconds before reloading okop after interface UP"
 msgstr "Задержка в миллисекундах перед перезагрузкой Okop после поднятия интерфейса"
-
-msgid "Delay value cannot be empty"
-msgstr "Значение задержки не может быть пустым"
 
 msgid "DHCP has DNS server"
 msgstr "DHCP содержит DNS сервер"
@@ -247,6 +250,9 @@ msgstr "Введите доменные имена без протоколов, 
 
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
 msgstr "Введите подсети в нотации CIDR (например, 103.21.244.0/22) или отдельные IP-адреса"
+
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //"
+msgstr "Введите подсети в нотации CIDR или отдельные IP-адреса, разделяя их запятыми, пробелами или переносами строк. Вы можете добавлять комментарии, используя //"
 
 msgid "Every 1 minute"
 msgstr "Каждую минуту"
@@ -533,6 +539,9 @@ msgstr "Конфигурация Outbound"
 msgid "Outbound Configuration"
 msgstr "Конфигурация исходящего соединения"
 
+msgid "Outbound must be a JSON object with a \"type\" field"
+msgstr "Outbound должен быть JSON-объектом с полем \"type\""
+
 msgid "Outdated"
 msgstr "Устаревшая"
 
@@ -553,6 +562,12 @@ msgstr "Путь должен заканчиваться на cache.db"
 
 msgid "Pending"
 msgstr "Ожидает запуска"
+
+msgid "Port %d is already used by another section"
+msgstr "Порт %d уже используется другой секцией"
+
+msgid "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)"
+msgstr "Порт %d занят самим роутером (SSH, DNS, веб-интерфейс или Clash API)"
 
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
@@ -725,6 +740,9 @@ msgstr "Укажите URL-адреса для загрузки и исполь�
 msgid "Specify the path to the list file located on the router filesystem"
 msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
 
+msgid "Specify the port number on which the mixed proxy will run for this section. Make sure the selected port is not used by another service"
+msgstr "Укажите порт, на котором будет работать смешанный прокси этой секции. Убедитесь, что порт не занят другой службой"
+
 msgid "Start okop"
 msgstr "Запустить Okop"
 
@@ -761,6 +779,9 @@ msgstr "Интервал между тестами подключения"
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
 
+msgid "The name %s is reserved, choose another one"
+msgstr "Имя %s зарезервировано, выберите другое"
+
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
 
@@ -775,12 +796,6 @@ msgstr "Всего трафика"
 
 msgid "Troubleshooting"
 msgstr "Устранение неполадок"
-
-msgid "TTL must be a positive number"
-msgstr "TTL должно быть положительным числом"
-
-msgid "TTL value cannot be empty"
-msgstr "Значение TTL не может быть пустым"
 
 msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"
@@ -849,7 +864,7 @@ msgid "Visit Wiki"
 msgstr "Перейти в wiki"
 
 msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
-msgstr ""
+msgstr "ссылки vless://, ss://, trojan://, socks4/5://, hy2/hysteria2://"
 
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr "Предупреждение: %s нельзя использовать вместе с %s. Предыдущие варианты были удалены."

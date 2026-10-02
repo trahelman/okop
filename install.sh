@@ -298,6 +298,7 @@ sing_box() {
         [ -x /etc/init.d/okop ] && /etc/init.d/okop stop
         if ! pkg_upgrade sing-box; then
             msg "Failed to upgrade sing-box, see the messages above"
+            [ -x /etc/init.d/okop ] && /etc/init.d/okop enabled && /etc/init.d/okop start
             exit 1
         fi
     fi

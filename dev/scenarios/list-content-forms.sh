@@ -1,9 +1,10 @@
 #!/bin/sh
 # shellcheck shell=dash
 # Lists are written by hand: "Wikipedia.org" with capitals, a link copied from the browser, a local list
-# file without a newline at the end, a user subnet list of a few thousand entries. The capitals and the
-# link were dropped as invalid, the last line of the file was lost, and a user list over 128 KB was
-# silently left out because it was passed as one argument.
+# file without a newline at the end, a user subnet list of a few thousand entries, both with a "//"
+# comment right after an entry. The capitals and the link were dropped as invalid, the last line of the
+# file was lost, a subnet with a comment attached was dropped, and a user list over 128 KB was silently
+# left out because it was passed as one argument.
 # Expected: all of them are routed.
 
 set -eu
@@ -29,7 +30,7 @@ result=0
 load_fixture proxy
 info "Setting user domains, a local list without a final newline and a large user subnet list"
 on_router sh -c "
-    printf 'speedtest.net' > $LOCAL_LIST
+    printf 'speedtest.net// a comment right after the entry' > $LOCAL_LIST
     uci -q delete okop.main.user_domains
     uci add_list okop.main.user_domains='Wikipedia.ORG'
     uci add_list okop.main.user_domains='https://www.kernel.org/pub/linux'
@@ -40,7 +41,7 @@ on_router sh -c "
     {
         printf \"\toption user_subnets_text '\"
         awk 'BEGIN { for (i = 0; i < 16384; i++) printf \"100.%d.%d.0/24\\n\", 64 + int(i / 256), i % 256 }'
-        printf \"$MARKER_SUBNET'\\n\"
+        printf \"$MARKER_SUBNET// the last entry'\\n\"
     } >> /etc/config/okop
     /etc/init.d/okop restart" > /dev/null 2>&1
 sleep 2

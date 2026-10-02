@@ -25,7 +25,7 @@ create_source_rule_set() {
 }
 
 # Turns a plain list into one valid entry per line, in one pass (a fork per line made lists of tens of
-# thousands of entries take minutes). Comments ("//" or "#" at the start or after a blank), carriage
+# thousands of entries take minutes). Comments ("//", or "#" at the start or after a blank), carriage
 # returns and blanks are removed, entries may also be separated by commas. Domains are lowercased and lose
 # a scheme, path and port, so "Example.com" and "https://example.com/page" work; "*.example.com" becomes
 # ".example.com". Invalid entries are dropped.
@@ -49,7 +49,8 @@ normalize_plain_list() {
                 return
             }
 
-            if (entry !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\/[0-9]+)?$/)
+            # Leading zeros are rejected by sing-box and read as octal by nft
+            if (entry !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\/[0-9]+)?$/ || entry ~ /(^|[.\/])0[0-9]/)
                 return
             count = split(entry, parts, /[.\/]/)
             for (i = 1; i <= 4; i++)
@@ -61,7 +62,20 @@ normalize_plain_list() {
         }
         {
             gsub(/\r/, "")
-            sub(/(^|[ \t])(\/\/|#).*$/, "")
+            # "//" starts a comment anywhere, as in LuCI, except after the colon of a scheme
+            line = $0
+            kept = ""
+            while ((i = index(line, "//")) > 0) {
+                if (i > 1 && substr(line, i - 1, 1) == ":") {
+                    kept = kept substr(line, 1, i + 1)
+                    line = substr(line, i + 2)
+                } else {
+                    line = substr(line, 1, i - 1)
+                    break
+                }
+            }
+            $0 = kept line
+            sub(/(^|[ \t])#.*$/, "")
             count = split($0, entries, /[ \t,]+/)
             for (i = 1; i <= count; i++)
                 if (entries[i] != "")
