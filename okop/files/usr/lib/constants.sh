@@ -19,6 +19,8 @@ REMOTE_RULESETS_INDEX="$TMP_SING_BOX_FOLDER/remote_rulesets"
 CACHED_LISTS_INDEX="$TMP_SING_BOX_FOLDER/cached_lists"
 # Held by the running lists update
 LIST_UPDATE_LOCK="/var/lock/okop_list_update"
+# Serializes start, stop, reload and restart
+OKOP_LOCK_FILE="/var/lock/okop.lock"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"

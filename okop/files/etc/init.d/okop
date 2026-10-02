@@ -64,7 +64,7 @@ service_triggers() {
     PROCD_RELOAD_DELAY=$badwan_reload_delay
 
     procd_open_trigger
-    procd_add_config_trigger "config.change" "$NAME" "$initscript" restart 'on_config_change'
+    procd_add_config_trigger "config.change" "$NAME" "$initscript" restart
 
     if [ "$enable_badwan_interface_monitoring" = "1" ]; then
         for iface in $badwan_monitored_interfaces; do

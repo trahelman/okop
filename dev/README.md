@@ -70,6 +70,7 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `dns-guard-detects-dead-upstream` | DNS-сервер sing-box недоступен: защита DNS возвращает dnsmasq на обычные серверы |
 | `failed-start-leaves-no-blackhole` | Неудачный запуск снимает перехват и возвращает dnsmasq |
 | `shutdown-and-disabled-upgrade` | При выключении роутера okop возвращает dnsmasq; обновление пакета не запускает выключенный okop |
+| `stop-during-start` | `stop` во время `start` и `start`, убитый сигналом TERM: okop остаётся выключенным целиком, без перехвата |
 | `singbox-fails-after-start` | Конфиг проходит `sing-box check`, но sing-box не может запуститься (порт занят): старт откатывается |
 | `init-reload-then-stop` | `service okop reload` (как при мониторинге интерфейсов), затем stop, start и restart: фоновые задачи не держат блокировку procd |
 | `lists-from-cache-on-boot` | После перезагрузки без доступа к GitHub подсети и текстовые списки применяются из сохранённых копий, обновление повторяется |

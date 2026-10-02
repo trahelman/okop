@@ -107,6 +107,15 @@ has_outbound_section() {
     return $section_exists
 }
 
+# start, stop, reload and restart run one at a time, in the order they arrive. Without this a stop arriving
+# while a start was still running (LuCI buttons, Save & Apply twice, interface monitoring at boot) cleaned
+# up first, and the start then installed everything again behind it. Released when the process exits;
+# background jobs do not keep it, run_detached closes inherited descriptors.
+okop_lock() {
+    exec 9> "$OKOP_LOCK_FILE"
+    flock 9
+}
+
 start_main() {
     log "Starting okop"
 
@@ -131,6 +140,8 @@ start_main() {
     # Every "exit" from here until sing-box is started leaves the interception without sing-box behind it.
     # Exits inside $(...) do not run the trap, the subshell resets it.
     trap start_rollback EXIT
+    # procd stops a start that is still running with TERM, which would skip the EXIT trap
+    trap 'exit 143' TERM INT
 
     # base
     route_table_rule_mark
@@ -149,7 +160,7 @@ start_main() {
         exit 1
     fi
 
-    trap - EXIT
+    trap - EXIT TERM INT
 
     log "Nice"
     # Detached from the caller's stdin/stdout, otherwise "okop reload" over SSH waits for list_update to finish.
@@ -3185,15 +3196,19 @@ EOF
 
 case "$1" in
 start)
+    okop_lock
     start
     ;;
 stop)
+    okop_lock
     stop
     ;;
 reload)
+    okop_lock
     reload
     ;;
 restart)
+    okop_lock
     restart
     ;;
 main)
