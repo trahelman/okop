@@ -79,20 +79,24 @@ else
     check_clean_after_failure "invalid mixed proxy port" || result=1
 fi
 
-# A section that aborts the config generation itself, before sing-box checks anything
+# A second proxy section without a link. check_requirements is satisfied by any section with an
+# outbound, so the start gets past the nft rules and aborts while generating the outbounds.
 load_fixture proxy
-info "Starting with a proxy section without a proxy link"
+info "Starting with a second proxy section without a proxy link"
 on_router sh -c "
-    uci delete okop.main.proxy_string
+    uci set okop.broken=section
+    uci set okop.broken.connection_type=proxy
+    uci set okop.broken.proxy_config_type=url
+    uci add_list okop.broken.user_domains=example.org
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1
 sleep 20
 
 if on_router pidof sing-box > /dev/null; then
-    fail "baseline: sing-box is running without a proxy link" || result=1
+    fail "baseline: sing-box is running with a section without a proxy link" || result=1
     show_state
 else
-    check_clean_after_failure "missing proxy link" || result=1
+    check_clean_after_failure "section without a proxy link" || result=1
 fi
 
 # A config_path whose parent directory does not exist
