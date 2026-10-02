@@ -1,6 +1,6 @@
 Примеры строк подключения.
 
-Okop поддерживает транспорты `tcp`/`raw`, `ws`, `grpc` и `httpupgrade`. Транспорты `kcp` (mKCP) и `xhttp` — из Xray, в sing-box их нет, поэтому ссылки с ними не заработают: Okop запишет в журнал ошибку, а аутбаунд останется без транспорта.
+Okop поддерживает транспорты `tcp`/`raw`, `ws`, `grpc` и `httpupgrade`. Транспорты `kcp` (mKCP) и `xhttp` — из Xray, в sing-box их нет, поэтому LuCI не примет ссылки VLESS и Trojan с ними. По той же причине не принимаются VLESS-ссылки с `headerType=http` и с `encryption`, отличным от `none`. Примеры с mKCP и XHTTP ниже оставлены для справки.
 
 ## Socks
 ```

@@ -52,14 +52,14 @@ function createSettingsContent(section) {
   });
   o.default = "77.88.8.8";
   o.rmempty = false;
+  // sing-box needs an address here: the bootstrap server is what resolves names, and it is always
+  // queried over UDP port 53
   o.validate = function (section_id, value) {
-    const validation = main.validateDNS(value);
-
-    if (validation.valid) {
+    if (main.validateIPV4(value).valid) {
       return true;
     }
 
-    return validation.message;
+    return _("Bootstrap DNS server must be an IPv4 address");
   };
 
   o = section.option(
@@ -70,18 +70,8 @@ function createSettingsContent(section) {
   );
   o.default = "60";
   o.rmempty = false;
-  o.validate = function (section_id, value) {
-    if (!value) {
-      return _("TTL value cannot be empty");
-    }
-
-    const ttl = parseInt(value);
-    if (isNaN(ttl) || ttl < 0) {
-      return _("TTL must be a positive number");
-    }
-
-    return true;
-  };
+  // sing-box takes whole seconds only
+  o.datatype = "uinteger";
 
   o = section.option(
     widgets.DeviceSelect,
@@ -224,12 +214,7 @@ function createSettingsContent(section) {
   o.depends("enable_badwan_interface_monitoring", "1");
   o.default = "2000";
   o.rmempty = false;
-  o.validate = function (section_id, value) {
-    if (!value) {
-      return _("Delay value cannot be empty");
-    }
-    return true;
-  };
+  o.datatype = "uinteger";
 
   o = section.option(
     form.Flag,
@@ -258,6 +243,7 @@ function createSettingsContent(section) {
   );
   o.depends("enable_yacd_wan_access", "1");
   o.rmempty = false;
+  o.password = true;
 
   o = section.option(
     form.Flag,

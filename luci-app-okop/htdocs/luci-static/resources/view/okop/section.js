@@ -10,13 +10,21 @@
 function describeProxyLink(link) {
   const match = String(link || "")
     .trim()
-    .match(/^([a-z0-9]+):\/\/(?:[^@\/?#]*@)?([^\/?#]*)[^#]*(?:#(.*))?$/i);
+    .match(/^([a-z0-9]+):\/\/([^?#]*)[^#]*(?:#(.*))?$/i);
   if (!match) {
     return _("invalid link");
   }
 
-  const [, scheme, hostPort, name] = match;
-  let label = hostPort;
+  const [, scheme, authority, name] = match;
+  // The server follows the last "@": a password may itself contain "/" or "@". Without "@" an ss link
+  // is entirely base64 with the password inside, so nothing of it is shown.
+  const at = authority.lastIndexOf("@");
+  let label = "";
+  if (at >= 0) {
+    label = authority.slice(at + 1).split("/")[0];
+  } else if (scheme.toLowerCase() !== "ss") {
+    label = authority.split("/")[0];
+  }
   if (name) {
     try {
       label = decodeURIComponent(name);
@@ -25,7 +33,7 @@ function describeProxyLink(link) {
     }
   }
 
-  return `${scheme.toLowerCase()} · ${label}`;
+  return label ? `${scheme.toLowerCase()} · ${label}` : scheme.toLowerCase();
 }
 
 function describeOutboundJson(json) {

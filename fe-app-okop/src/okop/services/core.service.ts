@@ -28,7 +28,8 @@ export function coreService() {
       return '';
     },
     {
-      intervalMs: 3000,
+      // Every check runs logread over the whole log on the router
+      intervalMs: 10000,
       onNewLog: (line) => {
         if (
           line.toLowerCase().includes('[error]') ||

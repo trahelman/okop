@@ -13,6 +13,7 @@ export class OkopLogWatcher {
   private onNewLog?: (line: string) => void;
   private intervalMs = 5000;
   private lastLines = new Set<string>();
+  private primed = false;
   private timer?: ReturnType<typeof setInterval>;
   private running = false;
   private paused = false;
@@ -58,17 +59,19 @@ export class OkopLogWatcher {
       const raw = await this.fetcher();
       const lines = raw.split('\n').filter(Boolean);
 
-      for (const line of lines) {
-        if (!this.lastLines.has(line)) {
-          this.lastLines.add(line);
-          this.onNewLog?.(line);
+      // The fetcher returns everything since okop started, so a line is new when the previous fetch
+      // did not have it. The first fetch only remembers: errors logged before the page was opened
+      // were shown again on every page load, and a trimmed history brought old ones back.
+      if (this.primed) {
+        for (const line of lines) {
+          if (!this.lastLines.has(line)) {
+            this.onNewLog?.(line);
+          }
         }
       }
 
-      if (this.lastLines.size > 500) {
-        const arr = Array.from(this.lastLines);
-        this.lastLines = new Set(arr.slice(-500));
-      }
+      this.lastLines = new Set(lines);
+      this.primed = true;
     } catch (err) {
       logger.error('[OkopLogWatcher]', 'failed to read logs:', err);
     }
@@ -82,6 +85,8 @@ export class OkopLogWatcher {
     }
 
     this.running = true;
+    // Remembers what is already in the log right away, so that the first interval only reports new lines
+    this.checkOnce();
     this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
     logger.info(
       '[OkopLogWatcher]',
@@ -111,6 +116,7 @@ export class OkopLogWatcher {
 
   reset(): void {
     this.lastLines.clear();
+    this.primed = false;
     logger.info('[OkopLogWatcher]', 'log history reset');
   }
 }

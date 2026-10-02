@@ -278,22 +278,22 @@ function validateVlessUrl(url) {
         message: "Invalid VLESS URL: missing query parameters"
       };
     const params = parseQueryString(queryString);
-    const validTypes = [
-      "tcp",
-      "raw",
-      "udp",
-      "grpc",
-      "http",
-      "httpupgrade",
-      "xhttp",
-      "ws",
-      "kcp"
-    ];
+    const validTypes = ["tcp", "raw", "grpc", "httpupgrade", "ws"];
     const validSecurities = ["tls", "reality", "none"];
     if (!params.type || !validTypes.includes(params.type))
       return {
         valid: false,
         message: "Invalid VLESS URL: unsupported or missing type"
+      };
+    if (params.headerType && params.headerType !== "none")
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported headerType"
+      };
+    if (params.encryption && params.encryption !== "none")
+      return {
+        valid: false,
+        message: "Invalid VLESS URL: unsupported encryption"
       };
     if (!params.security || !validSecurities.includes(params.security))
       return {
@@ -326,12 +326,19 @@ function validateVlessUrl(url) {
 
 // src/validators/validateOutboundJson.ts
 function validateOutboundJson(value) {
+  let parsed;
   try {
-    JSON.parse(value);
-    return { valid: true, message: _("Valid") };
+    parsed = JSON.parse(value);
   } catch {
     return { valid: false, message: _("Invalid JSON format") };
   }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed) || typeof parsed.type !== "string") {
+    return {
+      valid: false,
+      message: _('Outbound must be a JSON object with a "type" field')
+    };
+  }
+  return { valid: true, message: _("Valid") };
 }
 
 // src/validators/validateTrojanUrl.ts
@@ -351,7 +358,7 @@ function validateTrojanUrl(url) {
     }
     const body = url.slice("trojan://".length);
     const [mainPart] = body.split("#");
-    const [userHostPort] = mainPart.split("?");
+    const [userHostPort, queryString] = mainPart.split("?");
     const [userPart, hostPortPart] = userHostPort.split("@");
     if (!userHostPort)
       return {
@@ -375,6 +382,13 @@ function validateTrojanUrl(url) {
       return {
         valid: false,
         message: "Invalid Trojan URL: invalid port number"
+      };
+    const params = parseQueryString(queryString ?? "");
+    const validTypes = ["tcp", "raw", "grpc", "httpupgrade", "ws"];
+    if (params.type && !validTypes.includes(params.type))
+      return {
+        valid: false,
+        message: "Invalid Trojan URL: unsupported type"
       };
   } catch (_e) {
     return { valid: false, message: _("Invalid Trojan URL: parsing failed") };
@@ -637,7 +651,9 @@ var OkopShellMethods = {
   checkDNSAvailable: async () => callBaseMethod(
     Okop.AvailableMethods.CHECK_DNS_AVAILABLE
   ),
-  checkFakeIP: async () => callBaseMethod(Okop.AvailableMethods.CHECK_FAKEIP),
+  checkFakeIP: async () => callBaseMethod(
+    Okop.AvailableMethods.CHECK_FAKEIP
+  ),
   checkNftRules: async () => callBaseMethod(
     Okop.AvailableMethods.CHECK_NFT_RULES
   ),
@@ -674,7 +690,11 @@ var OkopShellMethods = {
     [],
     "/etc/init.d/okop"
   ),
-  stop: async () => callBaseMethod(Okop.AvailableMethods.STOP, [], "/etc/init.d/okop"),
+  stop: async () => callBaseMethod(
+    Okop.AvailableMethods.STOP,
+    [],
+    "/etc/init.d/okop"
+  ),
   enable: async () => callBaseMethod(
     Okop.AvailableMethods.ENABLE,
     [],
@@ -688,10 +708,28 @@ var OkopShellMethods = {
   globalCheck: async () => callBaseMethod(Okop.AvailableMethods.GLOBAL_CHECK),
   showSingBoxConfig: async () => callBaseMethod(Okop.AvailableMethods.SHOW_SING_BOX_CONFIG),
   checkLogs: async () => callBaseMethod(Okop.AvailableMethods.CHECK_LOGS),
-  getSystemInfo: async () => callBaseMethod(Okop.AvailableMethods.GET_SYSTEM_INFO)
+  getSystemInfo: async () => callBaseMethod(
+    Okop.AvailableMethods.GET_SYSTEM_INFO
+  )
 };
 
 // src/okop/methods/custom/getDashboardSections.ts
+function getOutboundJsonTag(outboundJson) {
+  let tag;
+  try {
+    tag = JSON.parse(outboundJson)?.tag;
+  } catch {
+    return void 0;
+  }
+  if (typeof tag !== "string" || !tag) {
+    return void 0;
+  }
+  try {
+    return decodeURIComponent(tag);
+  } catch {
+    return tag;
+  }
+}
 async function getDashboardSections() {
   const configSections = await getConfigSections();
   const clashProxies = await OkopShellMethods.getClashApiProxies();
@@ -736,9 +774,7 @@ async function getDashboardSections() {
         const outbound = proxies.find(
           (proxy) => proxy.code === `${section[".name"]}-out`
         );
-        const parsedOutbound = JSON.parse(section.outbound_json);
-        const parsedTag = parsedOutbound?.tag ? decodeURIComponent(parsedOutbound?.tag) : void 0;
-        const proxyDisplayName = parsedTag || outbound?.value?.name || "";
+        const proxyDisplayName = getOutboundJsonTag(section.outbound_json) || outbound?.value?.name || "";
         return {
           withTagSelect: false,
           code: outbound?.code || section[".name"],
@@ -1456,6 +1492,7 @@ var OkopLogWatcher = class _OkopLogWatcher {
   constructor() {
     this.intervalMs = 5e3;
     this.lastLines = /* @__PURE__ */ new Set();
+    this.primed = false;
     this.running = false;
     this.paused = false;
     if (typeof document !== "undefined") {
@@ -1492,16 +1529,15 @@ var OkopLogWatcher = class _OkopLogWatcher {
     try {
       const raw = await this.fetcher();
       const lines = raw.split("\n").filter(Boolean);
-      for (const line of lines) {
-        if (!this.lastLines.has(line)) {
-          this.lastLines.add(line);
-          this.onNewLog?.(line);
+      if (this.primed) {
+        for (const line of lines) {
+          if (!this.lastLines.has(line)) {
+            this.onNewLog?.(line);
+          }
         }
       }
-      if (this.lastLines.size > 500) {
-        const arr = Array.from(this.lastLines);
-        this.lastLines = new Set(arr.slice(-500));
-      }
+      this.lastLines = new Set(lines);
+      this.primed = true;
     } catch (err) {
       logger.error("[OkopLogWatcher]", "failed to read logs:", err);
     }
@@ -1513,8 +1549,12 @@ var OkopLogWatcher = class _OkopLogWatcher {
       return;
     }
     this.running = true;
+    this.checkOnce();
     this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
-    logger.info("[OkopLogWatcher]", `started (interval: ${this.intervalMs}ms)`);
+    logger.info(
+      "[OkopLogWatcher]",
+      `started (interval: ${this.intervalMs}ms)`
+    );
   }
   stop() {
     if (!this.running) return;
@@ -1535,6 +1575,7 @@ var OkopLogWatcher = class _OkopLogWatcher {
   }
   reset() {
     this.lastLines.clear();
+    this.primed = false;
     logger.info("[OkopLogWatcher]", "log history reset");
   }
 };
@@ -1560,7 +1601,8 @@ function coreService() {
       return "";
     },
     {
-      intervalMs: 3e3,
+      // Every check runs logread over the whole log on the router
+      intervalMs: 1e4,
       onNewLog: (line) => {
         if (line.toLowerCase().includes("[error]") || line.toLowerCase().includes("[fatal]")) {
           ui.addNotification("Okop Error", E("div", {}, [line]), "error");
@@ -1993,7 +2035,7 @@ async function fetchDashboardSections() {
 async function connectToClashSockets() {
   const clashApiSecret = await getClashApiSecret();
   socket.subscribe(
-    `${getClashWsUrl()}/traffic?token=${clashApiSecret}`,
+    `${getClashWsUrl()}/traffic?token=${encodeURIComponent(clashApiSecret)}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
       store.set({
@@ -2020,7 +2062,7 @@ async function connectToClashSockets() {
     }
   );
   socket.subscribe(
-    `${getClashWsUrl()}/connections?token=${clashApiSecret}`,
+    `${getClashWsUrl()}/connections?token=${encodeURIComponent(clashApiSecret)}`,
     (msg) => {
       const parsedMsg = JSON.parse(msg);
       store.set({
@@ -2330,11 +2372,21 @@ function registerLifecycleListeners() {
     }
   });
 }
+var mountPending = false;
+var lifecycleListenersRegistered = false;
 async function initController() {
+  if (mountPending) {
+    return;
+  }
+  mountPending = true;
   onMount("dashboard-status").then(() => {
+    mountPending = false;
     logger.debug("[DASHBOARD]", "initController", "onMount");
     onPageMount();
-    registerLifecycleListeners();
+    if (!lifecycleListenersRegistered) {
+      lifecycleListenersRegistered = true;
+      registerLifecycleListeners();
+    }
   });
 }
 
@@ -3930,7 +3982,9 @@ function getOkopVersionRow(diagnosticsSystemInfo) {
   const loading = diagnosticsSystemInfo.loading;
   const unknown = isUnknownVersion(diagnosticsSystemInfo.okop_version);
   const hasActualVersion = Boolean(diagnosticsSystemInfo.okop_latest_version) && !isUnknownVersion(diagnosticsSystemInfo.okop_latest_version);
-  const version = normalizeCompiledVersion(diagnosticsSystemInfo.okop_version);
+  const version = normalizeCompiledVersion(
+    diagnosticsSystemInfo.okop_version
+  );
   const isDevVersion = version === "dev";
   if (loading || unknown || !hasActualVersion || isDevVersion) {
     return {
@@ -4410,11 +4464,21 @@ function registerLifecycleListeners2() {
     }
   });
 }
+var mountPending2 = false;
+var lifecycleListenersRegistered2 = false;
 async function initController2() {
+  if (mountPending2) {
+    return;
+  }
+  mountPending2 = true;
   onMount("diagnostic-status").then(() => {
+    mountPending2 = false;
     logger.debug("[DIAGNOSTIC]", "initController", "onMount");
     onPageMount2();
-    registerLifecycleListeners2();
+    if (!lifecycleListenersRegistered2) {
+      lifecycleListenersRegistered2 = true;
+      registerLifecycleListeners2();
+    }
   });
 }
 

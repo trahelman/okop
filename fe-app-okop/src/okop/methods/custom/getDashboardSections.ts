@@ -8,6 +8,27 @@ interface IGetDashboardSectionsResponse {
   data: Okop.OutboundGroup[];
 }
 
+// The JSON may come from the uci CLI without validation, and a tag such as "50%" is not valid URI
+// encoding. Either threw and left the whole dashboard without sections.
+function getOutboundJsonTag(outboundJson: string): string | undefined {
+  let tag: unknown;
+  try {
+    tag = JSON.parse(outboundJson)?.tag;
+  } catch {
+    return undefined;
+  }
+
+  if (typeof tag !== 'string' || !tag) {
+    return undefined;
+  }
+
+  try {
+    return decodeURIComponent(tag);
+  } catch {
+    return tag;
+  }
+}
+
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const configSections = await getConfigSections();
   const clashProxies = await OkopShellMethods.getClashApiProxies();
@@ -66,11 +87,10 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
             (proxy) => proxy.code === `${section['.name']}-out`,
           );
 
-          const parsedOutbound = JSON.parse(section.outbound_json);
-          const parsedTag = parsedOutbound?.tag
-            ? decodeURIComponent(parsedOutbound?.tag)
-            : undefined;
-          const proxyDisplayName = parsedTag || outbound?.value?.name || '';
+          const proxyDisplayName =
+            getOutboundJsonTag(section.outbound_json) ||
+            outbound?.value?.name ||
+            '';
 
           return {
             withTagSelect: false,
