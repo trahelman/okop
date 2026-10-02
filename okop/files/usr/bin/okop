@@ -124,6 +124,7 @@ start_main() {
     migration
 
     config_foreach process_validate_service "section"
+    config_foreach check_section_name "section"
 
     br_netfilter_disable
 
@@ -986,6 +987,20 @@ sing_box_configure_outbounds() {
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
     config_foreach generate_for_section "section" configure_outbound_handler
+}
+
+# Section names become sing-box tags: "direct" gives direct-out and "service" gives service-mixed-in,
+# which okop uses itself, and sing-box rejects duplicate tags. LuCI refuses these names, this covers
+# configs edited by hand.
+check_section_name() {
+    local section="$1"
+
+    case "$section" in
+    direct | service)
+        log "Section name '$section' is reserved, rename the section. Aborted." "fatal"
+        exit 1
+        ;;
+    esac
 }
 
 # Runs a per-section step of the config generation and stops naming the section when the step broke the
