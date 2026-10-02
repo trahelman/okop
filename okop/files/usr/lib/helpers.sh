@@ -122,10 +122,16 @@ comma_string_to_json_array() {
     echo "[\"$replaced\"]"
 }
 
-# Decodes a URL-encoded string
+# Percent-decodes a single URL component, e.g. a password or a query parameter value.
+# Only %XX is decoded. "+" is left alone: in userinfo and in a path it is a literal character, not a
+# space, and turning it into a space corrupted every password containing one. Backslashes are escaped
+# first, so that printf does not reinterpret a value like 'c:\path\new' as containing a newline.
+# Must be applied to the pieces of a URL, never to the whole URL: decoding first would let a %40 in a
+# password turn into an "@" and move the host/userinfo boundary.
 url_decode() {
     local encoded="$1"
-    printf '%b' "$(echo "$encoded" | sed 's/+/ /g; s/%/\\x/g')"
+
+    printf '%b' "$(printf '%s' "$encoded" | sed -e 's/\\/\\\\/g' -e 's/%\([0-9A-Fa-f][0-9A-Fa-f]\)/\\x\1/g')"
 }
 
 # Returns the scheme (protocol) part of a URL
@@ -178,7 +184,7 @@ url_get_query_param() {
 
     [ -z "$raw" ] && echo "" && return
 
-    echo "$raw"
+    url_decode "$raw"
 }
 
 # Extracts the basename (filename without extension) from a URL

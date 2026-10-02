@@ -62,7 +62,9 @@ sing_box_cf_add_proxy_outbound() {
     local url="$3"
     local udp_over_tcp="$4"
 
-    url=$(url_decode "$url")
+    # The URL is split first and its pieces are decoded individually. Decoding the whole URL turned
+    # every "+" in a password into a space and let a %40 in a password become an "@", which moved the
+    # boundary between userinfo and host.
     url=$(url_strip_fragment "$url")
 
     local scheme
@@ -78,8 +80,17 @@ sing_box_cf_add_proxy_outbound() {
         if [ "$scheme" = "socks5" ]; then
             userinfo=$(url_get_userinfo "$url")
             if [ -n "$userinfo" ]; then
-                username="${userinfo%%:*}"
-                password="${userinfo#*:}"
+                case "$userinfo" in
+                *:*)
+                    username="$(url_decode "${userinfo%%:*}")"
+                    password="$(url_decode "${userinfo#*:}")"
+                    ;;
+                *)
+                    # Without a colon there is no password, and "${userinfo#*:}" would repeat the username
+                    username="$(url_decode "$userinfo")"
+                    password=""
+                    ;;
+                esac
             fi
         fi
         config="$(sing_box_cm_add_socks_outbound \
@@ -99,7 +110,7 @@ sing_box_cf_add_proxy_outbound() {
         tag=$(get_outbound_tag_by_section "$section")
         host=$(url_get_host "$url")
         port=$(url_get_port "$url")
-        uuid=$(url_get_userinfo "$url")
+        uuid=$(url_decode "$(url_get_userinfo "$url")")
         flow=$(url_get_query_param "$url" "flow")
         packet_encoding=$(url_get_query_param "$url" "packetEncoding")
 
@@ -110,7 +121,7 @@ sing_box_cf_add_proxy_outbound() {
     ss)
         local userinfo tag host port method password udp_over_tcp
 
-        userinfo=$(url_get_userinfo "$url")
+        userinfo=$(url_decode "$(url_get_userinfo "$url")")
         if ! is_shadowsocks_userinfo_format "$userinfo"; then
             userinfo=$(base64_decode "$userinfo")
             if [ $? -ne 0 ]; then
@@ -142,7 +153,7 @@ sing_box_cf_add_proxy_outbound() {
         tag=$(get_outbound_tag_by_section "$section")
         host=$(url_get_host "$url")
         port=$(url_get_port "$url")
-        password=$(url_get_userinfo "$url")
+        password=$(url_decode "$(url_get_userinfo "$url")")
 
         config=$(sing_box_cm_add_trojan_outbound "$config" "$tag" "$host" "$port" "$password")
         config=$(_add_outbound_security "$config" "$tag" "$url")
@@ -153,7 +164,7 @@ sing_box_cf_add_proxy_outbound() {
         tag=$(get_outbound_tag_by_section "$section")
         host=$(url_get_host "$url")
         port="$(url_get_port "$url")"
-        password=$(url_get_userinfo "$url")
+        password=$(url_decode "$(url_get_userinfo "$url")")
         obfuscator_type=$(url_get_query_param "$url" "obfs")
         obfuscator_password=$(url_get_query_param "$url" "obfs-password")
         upload_mbps=$(url_get_query_param "$url" "upmbps")
