@@ -28,6 +28,8 @@ DNS_GUARD_MAX_FAILURES=3
 DNS_PROBE_DOMAIN="openwrt.org"
 DNS_GUARD_MAX_UNRESOLVED=6
 DNS_GUARD_PID_FILE="/var/run/okop_dns_guard.pid"
+# Seconds start waits for sing-box to serve before it rolls back
+SING_BOX_START_TIMEOUT=30
 
 ## nft
 NFT_TABLE_NAME="OkopTable"

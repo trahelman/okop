@@ -142,6 +142,13 @@ start_main() {
     config_foreach add_cron_job "section"
     /etc/init.d/sing-box start
 
+    # "sing-box check" does not bind ports, so a config can pass it and still fail when sing-box runs
+    # (e.g. a mixed proxy port already in use). The rollback stays armed until sing-box really serves.
+    if ! wait_for_sing_box; then
+        log "sing-box did not start, see \"logread -e sing-box\". Aborted." "fatal"
+        exit 1
+    fi
+
     trap - EXIT
 
     log "Nice"
@@ -151,12 +158,31 @@ start_main() {
     echo $! > /var/run/okop_list_update.pid
 }
 
+# Waits until sing-box answers DNS and keeps the same pid for a moment, i.e. it is not crash-looping:
+# procd respawns a sing-box that exits, and a fresh process may answer briefly before it fails again.
+wait_for_sing_box() {
+    local i pid
+    for i in $(seq 1 "$SING_BOX_START_TIMEOUT"); do
+        if sing_box_dns_available; then
+            pid="$(pidof sing-box)"
+            sleep 2
+            [ -n "$pid" ] && [ "$(pidof sing-box)" = "$pid" ] && sing_box_dns_available && return 0
+        fi
+        sleep 1
+    done
+
+    return 1
+}
+
 # A start that fails after the nft rules are in place is worse than okop not running at all: packets
 # to okop_subnets and to the fake-IP range are still marked and tproxy'd to a sing-box that is not
 # listening, so they are blackholed, while domains resolve to real addresses and leave in the clear.
 # Undoing the interception turns a broken configuration into "okop is simply off".
 start_rollback() {
     log "Start failed, removing the traffic interception" "error"
+
+    # It may be crash-looping on a config it cannot run
+    /etc/init.d/sing-box stop 2> /dev/null
 
     if nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
         nft delete table inet "$NFT_TABLE_NAME"
