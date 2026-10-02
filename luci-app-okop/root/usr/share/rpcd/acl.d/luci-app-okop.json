@@ -3,10 +3,43 @@
     "description": "Grant UCI and RPC access to LuCI app okop",
     "read": {
       "file": {
-        "/etc/init.d/okop": [
+        "/usr/bin/okop check_dns_available": [
           "exec"
         ],
-        "/usr/bin/okop": [
+        "/usr/bin/okop check_fakeip": [
+          "exec"
+        ],
+        "/usr/bin/okop check_nft_rules": [
+          "exec"
+        ],
+        "/usr/bin/okop get_status": [
+          "exec"
+        ],
+        "/usr/bin/okop check_sing_box": [
+          "exec"
+        ],
+        "/usr/bin/okop get_sing_box_status": [
+          "exec"
+        ],
+        "/usr/bin/okop global_check": [
+          "exec"
+        ],
+        "/usr/bin/okop show_sing_box_config": [
+          "exec"
+        ],
+        "/usr/bin/okop check_logs": [
+          "exec"
+        ],
+        "/usr/bin/okop get_system_info": [
+          "exec"
+        ],
+        "/usr/bin/okop clash_api get_proxies": [
+          "exec"
+        ],
+        "/usr/bin/okop clash_api get_proxy_latency *": [
+          "exec"
+        ],
+        "/usr/bin/okop clash_api get_group_latency *": [
           "exec"
         ]
       },
@@ -20,6 +53,14 @@
       ]
     },
     "write": {
+      "file": {
+        "/usr/bin/okop *": [
+          "exec"
+        ],
+        "/etc/init.d/okop *": [
+          "exec"
+        ]
+      },
       "uci": [
         "okop"
       ]
