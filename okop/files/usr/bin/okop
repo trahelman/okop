@@ -1758,7 +1758,12 @@ import_subnets_from_remote_json_file() {
         return 1
     fi
 
-    extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"
+    if ! extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
+        log "Cannot read subnets from $url, they will not be routed" "error"
+        rm -f "$json_tmpfile" "$subnets_tmpfile"
+        return 1
+    fi
+
     nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
     rm -f "$json_tmpfile" "$subnets_tmpfile"
 }
@@ -1786,7 +1791,12 @@ import_subnets_from_remote_srs_file() {
         return 1
     fi
 
-    extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"
+    if ! extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
+        log "Cannot read subnets from $url, they will not be routed" "error"
+        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
+        return 1
+    fi
+
     nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
     rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
 }
