@@ -2159,30 +2159,7 @@ check_proxy() {
         return 1
     fi
 
-    jq '
-    walk(
-        if type == "object" then
-            with_entries(
-                if .key == "uuid" then
-                    .value = "MASKED"
-                elif .key == "server" then
-                    .value = "MASKED"
-                elif .key == "server_name" then
-                    .value = "MASKED"
-                elif .key == "password" then
-                    .value = "MASKED"
-                elif .key == "public_key" then
-                    .value = "MASKED"
-                elif .key == "short_id" then
-                    .value = "MASKED"
-                elif .key == "fingerprint" then
-                    .value = "MASKED"
-                elif .key == "server_port" then
-                    .value = "MASKED"
-                else . end
-            )
-        else . end
-    )' "$sing_box_config_path"
+    mask_sing_box_config "$sing_box_config_path"
 
     nolog "Checking proxy connection..."
 
@@ -2310,6 +2287,27 @@ check_logs() {
     fi
 }
 
+# Prints a sing-box config with everything that identifies the server or authenticates to it masked.
+# The output of the diagnostics is pasted into chats and issues. Paths of local rule sets are kept,
+# they are needed to diagnose lists.
+mask_sing_box_config() {
+    jq '
+    def secret_key:
+        IN("uuid", "server", "server_name", "server_port", "server_ports", "password", "username",
+            "public_key", "short_id", "fingerprint", "secret", "private_key", "pre_shared_key",
+            "auth", "auth_str", "path", "headers", "host", "service_name", "plugin_opts");
+    walk(
+        if type == "object" then
+            (.type // "") as $type
+            | with_entries(
+                if (.key | secret_key) and (.key != "path" or ($type != "local" and $type != "remote")) then
+                    .value = "MASKED"
+                else . end
+            )
+        else . end
+    )' "$@"
+}
+
 show_sing_box_config() {
     local sing_box_config_path
     config_get sing_box_config_path "settings" "config_path"
@@ -2320,30 +2318,7 @@ show_sing_box_config() {
         return 1
     fi
 
-    jq '
-    walk(
-        if type == "object" then
-            with_entries(
-                if .key == "uuid" then
-                    .value = "MASKED"
-                elif .key == "server" then
-                    .value = "MASKED"
-                elif .key == "server_name" then
-                    .value = "MASKED"
-                elif .key == "password" then
-                    .value = "MASKED"
-                elif .key == "public_key" then
-                    .value = "MASKED"
-                elif .key == "short_id" then
-                    .value = "MASKED"
-                elif .key == "fingerprint" then
-                    .value = "MASKED"
-                elif .key == "server_port" then
-                    .value = "MASKED"
-                else . end
-            )
-        else . end
-    )' "$sing_box_config_path"
+    mask_sing_box_config "$sing_box_config_path"
 }
 
 show_config() {
@@ -2493,16 +2468,14 @@ check_dns_available() {
     local dhcp_config_status=1
     local domain="google.com"
 
-    # Mask NextDNS ID if present
+    # Paths of DoH servers often carry a private profile ID (NextDNS, AdGuard DNS and others), and so does
+    # the NextDNS host name
     local display_dns_server="$dns_server"
-    if echo "$dns_server" | grep -q "\.dns\.nextdns\.io$"; then
-        local nextdns_id
-        nextdns_id=$(echo "$dns_server" | cut -d'.' -f1)
-        display_dns_server="$(echo "$nextdns_id" | sed 's/./*/g').dns.nextdns.io"
-    elif echo "$dns_server" | grep -q "^dns\.nextdns\.io/"; then
-        local masked_path
-        masked_path=$(echo "$dns_server" | cut -d'/' -f2- | sed 's/./*/g')
-        display_dns_server="dns.nextdns.io/$masked_path"
+    case "$dns_server" in
+    */*) display_dns_server="${dns_server%%/*}/******" ;;
+    esac
+    if echo "$display_dns_server" | grep -q "\.dns\.nextdns\.io"; then
+        display_dns_server="******.dns.nextdns.io${display_dns_server#*.dns.nextdns.io}"
     fi
 
     if [ "$dns_type" = "doh" ]; then
@@ -3087,9 +3060,8 @@ global_check() {
                 if ($1 == "option" && $2 == "proto") {
                     proto = $3
                     print
-                } else if (proto == "'\''static'\''" && $1 == "option" && ($2 == "ipaddr" || $2 == "netmask" || $2 == "gateway")) {
-                    print "        option", $2, "'\''******'\''"
-                } else if (proto == "'\''pppoe'\''" && $1 == "option" && ($2 == "username" || $2 == "password")) {
+                } else if ($1 == "option" && $2 ~ /^(username|password|pincode|pin|key|auth|ipaddr|netmask|gateway|ip6addr|ip6gw|ip6prefix|macaddr)$/) {
+                    # Credentials of every protocol (PPPoE, L2TP, PPTP, modems) and addresses
                     print "        option", $2, "'\''******'\''"
                 } else {
                     print
