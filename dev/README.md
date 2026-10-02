@@ -77,5 +77,6 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `list-update-repeated` | Повторные и одновременные обновления списков: правило Discord не дублируется, обновления не идут параллельно |
 | `mixed-remote-subnet-list` | Подсети извлекаются из rule-set, где правила с `ip_cidr` смешаны с другими |
 | `proxy-url-credentials` | Пароли и логины из ссылок на прокси попадают в конфиг без искажений |
+| `podkop-migration` | Перенос конфига Podkop: один раз, без перезаписи при обновлениях; конфиг Podkop до 0.7 не трогает настройки okop |
 | `proxy-url-defaults` | trojan без `security=`, ss в base64url, ss с `plugin=`: outbound собирается правильно |
 | `proxy-url-transport` | Транспорт из ссылки (ws, grpc, httpupgrade) попадает в конфиг |
