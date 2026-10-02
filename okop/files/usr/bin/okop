@@ -517,17 +517,27 @@ dnsmasq_configure() {
         return 0
     fi
 
-    log "Backup dnsmasq configuration"
     local servers server
     servers="$(uci_get "dhcp" "@dnsmasq[0]" "server")"
 
-    # The whole list is kept in its original order, so that it is restored exactly
-    uci_remove "dhcp" "@dnsmasq[0]" "okop_server" 2> /dev/null
-    for server in $servers; do
-        uci_add_list "dhcp" "@dnsmasq[0]" "okop_server" "$server"
-    done
-    backup_dnsmasq_config_option "noresolv" "okop_noresolv"
-    backup_dnsmasq_config_option "cachesize" "okop_cachesize"
+    if dnsmasq_switched_by_okop; then
+        # A backup of an earlier switch that was not restored, e.g. sing-box was removed from the servers
+        # by hand. It holds the user's settings, the current noresolv and cachesize are okop's own.
+        log "Keeping the backup of the dnsmasq configuration from an earlier start"
+        local backup_servers
+        backup_servers="$(uci_get "dhcp" "@dnsmasq[0]" "okop_server")"
+        for server in $servers; do
+            list_contains "$backup_servers" "$server" || uci_add_list "dhcp" "@dnsmasq[0]" "okop_server" "$server"
+        done
+    else
+        log "Backup dnsmasq configuration"
+        # The whole list is kept in its original order, so that it is restored exactly
+        for server in $servers; do
+            uci_add_list "dhcp" "@dnsmasq[0]" "okop_server" "$server"
+        done
+        backup_dnsmasq_config_option "noresolv" "okop_noresolv"
+        backup_dnsmasq_config_option "cachesize" "okop_cachesize"
+    fi
 
     log "Configure dnsmasq for sing-box"
     uci_remove "dhcp" "@dnsmasq[0]" "server"
@@ -557,7 +567,8 @@ dnsmasq_switched_by_okop() {
 }
 
 dnsmasq_restore() {
-    if ! dnsmasq_uses_sing_box; then
+    # Also when sing-box was removed from the servers by hand: noresolv and cachesize are still okop's
+    if ! dnsmasq_uses_sing_box && ! dnsmasq_switched_by_okop; then
         log "dnsmasq does not use sing-box, restoring of dnsmasq is not required" "debug"
         return 0
     fi
@@ -578,6 +589,11 @@ dnsmasq_restore() {
 
     uci_remove "dhcp" "@dnsmasq[0]" "server"
     for server in $backup_servers; do
+        # Domain forwardings stay in place while dnsmasq uses sing-box, so the current list is the truth
+        # for them: one removed or edited in the meantime must not come back
+        if is_domain_specific_dnsmasq_server "$server" && ! list_contains "$current_servers" "$server"; then
+            continue
+        fi
         uci_add_list "dhcp" "@dnsmasq[0]" "server" "$server"
     done
     # Keep servers added while dnsmasq was using sing-box
