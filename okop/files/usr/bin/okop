@@ -948,6 +948,7 @@ sing_box_init_config() {
     # Built in a separate file, a cron list_update may be reading the current one
     : > "$REMOTE_RULESETS_INDEX.new"
     prepared_source_rulesets=""
+    remote_ruleset_urls=""
 
     sing_box_configure_log
     sing_box_configure_inbounds
@@ -1545,6 +1546,21 @@ configure_remote_domain_or_subnet_list_handler() {
         ruleset_tag=$(get_ruleset_tag "$section" "$basename" "remote-$type")
         format="$(get_ruleset_format_by_file_extension "$file_extension")"
 
+        # The same list twice in a section would add its rule set twice
+        case " $remote_ruleset_urls " in
+        *" $section|$type|$url "*)
+            log "List $url is added twice to '$section' section, the second one is ignored" "warn"
+            return 0
+            ;;
+        esac
+        remote_ruleset_urls="$remote_ruleset_urls $section|$type|$url"
+
+        # Different lists may share a file name (a.com/list.srs and b.com/list.srs, list.srs and list.json),
+        # and sing-box rejects duplicate tags. The first one keeps the plain tag, so existing caches stay valid.
+        if awk -v tag="$ruleset_tag" '$1 == tag { found = 1 } END { exit !found }' "$REMOTE_RULESETS_INDEX.new"; then
+            ruleset_tag=$(get_ruleset_tag "$section" "$basename-$(printf '%s' "$url" | md5sum | cut -c1-8)" "remote-$type")
+        fi
+
         add_cached_remote_ruleset "$ruleset_tag" "$format" "$url" || return 1
         config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
         case "$type" in
@@ -2021,9 +2037,13 @@ import_subnets_from_remote_subnet_list_handler() {
     file_extension="$(url_get_file_extension "$url")"
     case "$file_extension" in
     json | srs)
-        # Read from the rule set sing-box already uses, update_remote_rulesets downloads it
+        # Read from the rule set sing-box already uses, update_remote_rulesets downloads it. Its tag is taken
+        # from the index: tags of lists sharing a file name carry a hash of the URL.
         local ruleset_tag
-        ruleset_tag=$(get_ruleset_tag "$section" "$(url_get_basename "$url")" "remote-subnets")
+        ruleset_tag=$(awk -v url="$url" -v prefix="$section-" \
+            'index($1, prefix) == 1 && $1 ~ /-remote-subnets-ruleset$/ && $3 == url { print $1; exit }' \
+            "$REMOTE_RULESETS_INDEX")
+        [ -n "$ruleset_tag" ] || return 0
         import_subnets_from_ruleset_file \
             "$(get_cached_ruleset_filepath "$ruleset_tag" "$(get_ruleset_format_by_file_extension "$file_extension")")" \
             "$file_extension" "$url" || import_lists_failed=1

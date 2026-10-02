@@ -188,8 +188,9 @@ url_get_query_param() {
 }
 
 # Extracts the basename (filename without extension) from a URL
+# The query string and the fragment are not part of the file name: GitHub links often end in ?raw=true
 url_get_basename() {
-    local url="$1"
+    local url="${1%%[?#]*}"
 
     local filename="${url##*/}"
     local basename="${filename%%.*}"
@@ -198,12 +199,14 @@ url_get_basename() {
 }
 
 # Extracts and returns the file extension from the given URL
+# Lowercase, without the query string and the fragment: list.SRS and list.srs?raw=true are rule sets,
+# not plain-text lists
 url_get_file_extension() {
-    local url="$1"
+    local url="${1%%[?#]*}"
 
     local basename="${url##*/}"
     case "$basename" in
-    *.*) echo "${basename##*.}" ;;
+    *.*) echo "${basename##*.}" | tr 'A-Z' 'a-z' ;;
     *) echo "" ;;
     esac
 }
