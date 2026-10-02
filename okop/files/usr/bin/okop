@@ -200,9 +200,7 @@ start_rollback() {
         nft delete table inet "$NFT_TABLE_NAME"
     fi
 
-    if ip rule list | grep -q "$RT_TABLE_NAME"; then
-        ip rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2> /dev/null
-    fi
+    delete_mark_rules
 
     dnsmasq_restore
 }
@@ -250,9 +248,7 @@ stop_main() {
     fi
 
     log "Flush ip rule"
-    if ip rule list | grep -q "okop"; then
-        ip rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
-    fi
+    delete_mark_rules
 
     log "Flush ip route"
     if ip route list table "$RT_TABLE_NAME" > /dev/null 2>&1; then
@@ -367,12 +363,21 @@ route_table_rule_mark() {
         log "Route for tproxy exists" "debug"
     fi
 
-    if ! ip rule list | grep -q "from all fwmark $NFT_FAKEIP_MARK/$NFT_FAKEIP_MARK lookup $RT_TABLE_NAME"; then
+    # ip prints the mark without leading zeros (0x100000), so the rule is looked up by its table: matched
+    # against "0x00100000" it was never found and every start without a stop added one more
+    if ! ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
         log "Create marking rule" "debug"
         ip -4 rule add fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105
     else
         log "Marking rule exist" "debug"
     fi
+}
+
+# Deletes the marking rule, every copy of it
+delete_mark_rules() {
+    while ip -4 rule del fwmark "$NFT_FAKEIP_MARK"/"$NFT_FAKEIP_MARK" table "$RT_TABLE_NAME" priority 105 2> /dev/null; do
+        :
+    done
 }
 
 nft_init_interfaces_set() {
