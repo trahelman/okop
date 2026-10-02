@@ -2,6 +2,9 @@
 # shellcheck disable=SC2034,SC2154
 
 START=99
+# Stopped on shutdown, so a clean reboot gives dnsmasq back before the next boot: services that start
+# before okop (S99) and need DNS, such as VPN endpoints given by host name, would otherwise wait for it
+STOP=10
 USE_PROCD=1
 
 script=$(readlink "$initscript")
@@ -9,6 +12,14 @@ NAME="$(basename ${script:-$initscript})"
 config_load "$NAME"
 
 start_service() {
+    # default_postinst runs "start" on every package upgrade, also for a disabled okop. Nothing would
+    # stop it again before a reboot, and after the reboot dnsmasq would still point at sing-box with
+    # no okop to give it back.
+    if [ "$PKG_UPGRADE" = "1" ] && ! enabled; then
+        echo "okop is disabled, not starting it after the upgrade"
+        return 0
+    fi
+
     echo "Start okop"
 
     config_get enable_badwan_interface_monitoring "settings" "enable_badwan_interface_monitoring"

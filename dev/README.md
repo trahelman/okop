@@ -69,6 +69,7 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `reload-keeps-lists-routed` | После `reload` dnsmasq снова направляет запросы в sing-box, домены из списков маршрутизируются |
 | `dns-guard-detects-dead-upstream` | DNS-сервер sing-box недоступен: защита DNS возвращает dnsmasq на обычные серверы |
 | `failed-start-leaves-no-blackhole` | Неудачный запуск снимает перехват и возвращает dnsmasq |
+| `shutdown-and-disabled-upgrade` | При выключении роутера okop возвращает dnsmasq; обновление пакета не запускает выключенный okop |
 | `singbox-fails-after-start` | Конфиг проходит `sing-box check`, но sing-box не может запуститься (порт занят): старт откатывается |
 | `init-reload-then-stop` | `service okop reload` (как при мониторинге интерфейсов), затем stop, start и restart: фоновые задачи не держат блокировку procd |
 | `mixed-remote-subnet-list` | Подсети извлекаются из rule-set, где правила с `ip_cidr` смешаны с другими |
