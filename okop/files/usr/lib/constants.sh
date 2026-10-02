@@ -15,6 +15,10 @@ TMP_RULESET_FOLDER="$TMP_SING_BOX_FOLDER/rulesets"
 RULESET_CACHE_DEFAULT_PATH="/etc/okop/rulesets"
 # Remote rule sets of the current sing-box configuration: "<tag> <format> <url>" per line
 REMOTE_RULESETS_INDEX="$TMP_SING_BOX_FOLDER/remote_rulesets"
+# URLs of the plain-text and community subnet lists in use, to clean up the cached copies
+CACHED_LISTS_INDEX="$TMP_SING_BOX_FOLDER/cached_lists"
+# Held by the running lists update
+LIST_UPDATE_LOCK="/var/lock/okop_list_update"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker
 JQ_REQUIRED_VERSION="1.7.1"
 COREUTILS_BASE64_REQUIRED_VERSION="9.7"

@@ -28,7 +28,7 @@ dc start proxy > /dev/null
 load_fixture proxy
 
 info "Removing downloaded lists, blocking GitHub and stopping the proxy"
-on_router sh -c 'rm -f /etc/okop/rulesets/*'
+on_router sh -c 'rm -rf /etc/okop/rulesets/*'
 block_github
 dc stop proxy > /dev/null
 reboot_router

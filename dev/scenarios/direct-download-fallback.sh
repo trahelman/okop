@@ -34,22 +34,23 @@ load_fixture proxy
 info "Stopping the proxy and removing downloaded lists"
 dc stop proxy > /dev/null
 set_direct_fallback 0
-on_router sh -c 'rm -f /etc/okop/rulesets/*'
+on_router sh -c 'rm -rf /etc/okop/rulesets/*'
 on_router /etc/init.d/okop restart > /dev/null 2>&1
 wait_okop
 
-info "Updating lists without the direct fallback"
-on_router okop list_update > /dev/null 2>&1 || true
-if lists_downloaded; then
+# The update started with okop retries while the proxy is down. Settings are changed the way LuCI does it:
+# Save & Apply restarts okop.
+info "Waiting for the start-time update without the direct fallback"
+if wait_for 90 lists_downloaded; then
     fail "lists were downloaded directly although the direct fallback is disabled" || result=1
 else
     pass "lists are not downloaded directly without the direct fallback"
 fi
 
-info "Updating lists with the direct fallback"
+info "Enabling the direct fallback and restarting okop"
 set_direct_fallback 1
-on_router okop list_update > /dev/null 2>&1 || true
-if lists_downloaded; then
+on_router /etc/init.d/okop restart > /dev/null 2>&1
+if wait_for 120 lists_downloaded; then
     pass "lists are downloaded directly with the direct fallback"
 else
     fail "lists are not downloaded with the direct fallback" || result=1

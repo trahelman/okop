@@ -72,6 +72,8 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `shutdown-and-disabled-upgrade` | При выключении роутера okop возвращает dnsmasq; обновление пакета не запускает выключенный okop |
 | `singbox-fails-after-start` | Конфиг проходит `sing-box check`, но sing-box не может запуститься (порт занят): старт откатывается |
 | `init-reload-then-stop` | `service okop reload` (как при мониторинге интерфейсов), затем stop, start и restart: фоновые задачи не держат блокировку procd |
+| `lists-from-cache-on-boot` | После перезагрузки без доступа к GitHub подсети и текстовые списки применяются из сохранённых копий, обновление повторяется |
+| `list-update-repeated` | Повторные и одновременные обновления списков: правило Discord не дублируется, обновления не идут параллельно |
 | `mixed-remote-subnet-list` | Подсети извлекаются из rule-set, где правила с `ip_cidr` смешаны с другими |
 | `proxy-url-credentials` | Пароли и логины из ссылок на прокси попадают в конфиг без искажений |
 | `proxy-url-defaults` | trojan без `security=`, ss в base64url, ss с `plugin=`: outbound собирается правильно |

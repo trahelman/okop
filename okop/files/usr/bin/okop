@@ -154,7 +154,7 @@ start_main() {
     log "Nice"
     # Detached from the caller's stdin/stdout, otherwise "okop reload" over SSH waits for list_update to finish.
     # Messages still go to the system log.
-    run_detached list_update
+    run_detached lists_job
     echo $! > /var/run/okop_list_update.pid
 }
 
@@ -214,6 +214,13 @@ stop_list_update() {
         log "Stopped list_update"
     fi
     rm -f /var/run/okop_list_update.pid
+
+    # An update started by cron
+    if okop_background_job_running "$LIST_UPDATE_LOCK/pid"; then
+        kill "$(cat "$LIST_UPDATE_LOCK/pid")" 2> /dev/null
+        log "Stopped a running lists update"
+    fi
+    list_update_unlock
 }
 
 stop_main() {
@@ -392,6 +399,10 @@ create_nft_rules() {
     log "Create common set"
     nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
 
+    # Discord voice runs over UDP on these ports. Created once here: adding the rule on every list update
+    # piled up copies of it in the chain.
+    nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
+
     log "Create interface set"
     nft_init_interfaces_set
 
@@ -405,6 +416,8 @@ create_nft_rules() {
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_COMMON_SET_NAME" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto tcp meta mark set "$NFT_FAKEIP_MARK" counter
     nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "$SB_FAKEIP_INET4_RANGE" meta l4proto udp meta mark set "$NFT_FAKEIP_MARK" counter
+    nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr "@$NFT_DISCORD_SET_NAME" \
+        udp dport '{ 19000-20000, 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
 
     nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto tcp tproxy ip to 127.0.0.1:1602 counter
     nft add rule inet "$NFT_TABLE_NAME" proxy meta mark \& "$NFT_FAKEIP_MARK" == "$NFT_FAKEIP_MARK" meta l4proto udp tproxy ip to 127.0.0.1:1602 counter
@@ -757,7 +770,13 @@ remove_cron_job() {
     log "The cron job removed"
 }
 
+# Returns 1 when the network is not ready (DNS or GitHub unreachable), 2 when some lists failed
 list_update() {
+    if ! list_update_lock; then
+        echolog "Lists are already being updated"
+        return 0
+    fi
+
     echolog "🔄 Starting lists update..."
 
     local nslookup_timeout=3
@@ -766,20 +785,23 @@ list_update() {
     local curl_attempts=10
     local curl_max_timeout=10
     local delay=3
-    local i
+    local i passed
 
     # DNS Check
+    passed=0
     for i in $(seq 1 $nslookup_attempts); do
         if nslookup -timeout=$nslookup_timeout openwrt.org > /dev/null 2>&1; then
             echolog "✅ DNS check passed"
+            passed=1
             break
         fi
         echolog "DNS is unavailable [$i/$nslookup_attempts]"
         sleep $delay
     done
 
-    if [ "$i" -eq $nslookup_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ DNS check failed after $nslookup_attempts attempts"
+        list_update_unlock
         return 1
     fi
 
@@ -787,10 +809,12 @@ list_update() {
     local service_proxy_address direct_fallback
     service_proxy_address="$(get_service_proxy_address)"
     config_get_bool direct_fallback "settings" "download_lists_direct_fallback" 0
+    passed=0
     for i in $(seq 1 $curl_attempts); do
         if [ -n "$service_proxy_address" ] &&
             curl -s -x "http://$service_proxy_address" -m $curl_timeout https://github.com > /dev/null; then
             echolog "✅ GitHub connection check passed (via proxy)"
+            passed=1
             break
         fi
 
@@ -798,6 +822,7 @@ list_update() {
         if { [ -z "$service_proxy_address" ] || [ "$direct_fallback" -eq 1 ]; } &&
             curl -s -m $curl_timeout https://github.com > /dev/null; then
             echolog "✅ GitHub connection check passed"
+            passed=1
             break
         fi
 
@@ -808,23 +833,70 @@ list_update() {
         sleep $delay
     done
 
-    if [ "$i" -eq $curl_attempts ]; then
+    if [ "$passed" -eq 0 ]; then
         echolog "❌ GitHub connection check failed after $curl_attempts attempts"
+        list_update_unlock
         return 1
     fi
 
     echolog "📥 Downloading and processing lists..."
 
-    update_remote_rulesets
-    config_foreach import_community_subnet_lists "section"
-    config_foreach import_domains_from_remote_domain_lists "section"
-    config_foreach import_subnets_from_remote_subnet_lists "section"
+    local status=0
+    update_remote_rulesets || status=2
+    import_lists "update" || status=2
 
-    if [ $? -eq 0 ]; then
+    list_update_unlock
+
+    if [ "$status" -eq 0 ]; then
         echolog "✅ Lists update completed successfully"
     else
-        echolog "❌ Lists update failed"
+        echolog "❌ Some lists could not be updated, their previous copies are used"
     fi
+
+    return "$status"
+}
+
+# Only one list update at a time: the one started with okop and the cron one write the same files.
+# The lock holds the pid, so a lock left by a killed update is taken over.
+list_update_lock() {
+    local own_pid
+    read -r own_pid _ < /proc/self/stat
+
+    if mkdir "$LIST_UPDATE_LOCK" 2> /dev/null; then
+        echo "$own_pid" > "$LIST_UPDATE_LOCK/pid"
+        return 0
+    fi
+
+    if okop_background_job_running "$LIST_UPDATE_LOCK/pid"; then
+        return 1
+    fi
+
+    list_update_unlock
+    mkdir "$LIST_UPDATE_LOCK" 2> /dev/null || return 1
+    echo "$own_pid" > "$LIST_UPDATE_LOCK/pid"
+}
+
+list_update_unlock() {
+    rm -f "${LIST_UPDATE_LOCK:?}/pid"
+    rmdir "$LIST_UPDATE_LOCK" 2> /dev/null
+}
+
+# Started in the background with okop: applies the stored lists right away, then downloads fresh ones,
+# retrying while the network is not ready yet (WAN or the proxy may come up after okop)
+lists_job() {
+    import_lists "cached"
+
+    local delay=60 status
+    while :; do
+        list_update
+        status=$?
+        [ "$status" -ne 1 ] && break
+
+        log "Network is not ready for the lists update, retrying in ${delay}s" "warn"
+        sleep "$delay"
+        delay=$((delay * 2))
+        [ "$delay" -gt 1800 ] && delay=1800
+    done
 }
 
 # sing-box funcs
@@ -863,6 +935,7 @@ sing_box_init_config() {
 
     # Built in a separate file, a cron list_update may be reading the current one
     : > "$REMOTE_RULESETS_INDEX.new"
+    prepared_source_rulesets=""
 
     sing_box_configure_log
     sing_box_configure_inbounds
@@ -1308,23 +1381,30 @@ prepare_source_ruleset() {
     log "Preparing a $name $type rule set for '$section' section" "debug"
     ruleset_tag=$(get_ruleset_tag "$section" "$name" "$type")
     ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    create_source_rule_set "$ruleset_filepath"
-    case $? in
-    0)
-        config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
-        config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
-        case "$type" in
-        domains)
-            config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
-            ;;
-        subnets) ;;
-        *)
-            log "Unsupported remote rule set type: $type" "error"
-            return 1
-            ;;
-        esac
+
+    # Several lists of a section may share one rule set (e.g. plain-text remote lists). Whether it is
+    # already in the config is decided per run, not by the file existing: a file left by a previous run or
+    # recreated by a concurrent update would leave the rule set out of the config.
+    case " $prepared_source_rulesets " in
+    *" $ruleset_tag "*)
+        log "Source rule set $ruleset_filepath is already prepared" "debug"
+        return 0
         ;;
-    3) log "Source rule set $ruleset_filepath already exists, skipping." "debug" ;;
+    esac
+    prepared_source_rulesets="$prepared_source_rulesets $ruleset_tag"
+    jq -n '{version: 3, rules: []}' > "$ruleset_filepath"
+
+    config=$(sing_box_cm_add_local_ruleset "$config" "$ruleset_tag" "source" "$ruleset_filepath")
+    config=$(sing_box_cm_patch_route_rule "$config" "$route_rule_tag" "rule_set" "$ruleset_tag")
+    case "$type" in
+    domains)
+        config=$(sing_box_cm_patch_dns_route_rule "$config" "$SB_FAKEIP_DNS_RULE_TAG" "rule_set" "$ruleset_tag")
+        ;;
+    subnets) ;;
+    *)
+        log "Unsupported remote rule set type: $type" "error"
+        return 1
+        ;;
     esac
 }
 
@@ -1677,248 +1757,267 @@ sing_box_config_check() {
     fi
 }
 
+# Remote plain-text lists and the community subnet lists are kept next to the rule sets: they are applied
+# at start without network access, and a failed update keeps the previous copy.
+get_cached_list_filepath() {
+    local url="$1"
+    echo "$(get_ruleset_cache_path)/lists/$(printf '%s' "$url" | md5sum | cut -c1-16).lst"
+}
+
+update_cached_list() {
+    local url="$1"
+
+    local filepath tmpfile partfile
+    filepath="$(get_cached_list_filepath "$url")"
+    mkdir -p "$(dirname "$filepath")"
+    tmpfile="$(mktemp)"
+
+    if ! download_to_file "$url" "$tmpfile" "$(get_service_proxy_address)" || [ ! -s "$tmpfile" ]; then
+        log "Failed to download $url, the previous copy is kept" "error"
+        rm -f "$tmpfile"
+        return 1
+    fi
+    convert_crlf_to_lf "$tmpfile"
+
+    if cmp -s "$tmpfile" "$filepath"; then
+        rm -f "$tmpfile"
+        return 0
+    fi
+
+    partfile="$filepath.$$.tmp"
+    if ! cp "$tmpfile" "$partfile" || ! chmod 644 "$partfile" || ! mv "$partfile" "$filepath"; then
+        log "Failed to save list $filepath" "error"
+        rm -f "$tmpfile" "$partfile"
+        return 1
+    fi
+
+    rm -f "$tmpfile"
+    log "List $url has been updated"
+}
+
+# Prints the cached copy of a list and records it as in use, or fails when there is none yet
+get_cached_list() {
+    local url="$1"
+
+    local filepath
+    filepath="$(get_cached_list_filepath "$url")"
+    echo "$url" >> "$CACHED_LISTS_INDEX"
+
+    if [ ! -s "$filepath" ]; then
+        log "No downloaded copy of $url yet" "warn"
+        return 1
+    fi
+
+    echo "$filepath"
+}
+
+# Removes cached lists that are no longer configured
+cleanup_list_cache() {
+    local dir filepath used url
+    dir="$(get_ruleset_cache_path)/lists"
+    [ -d "$dir" ] || return 0
+
+    rm -f "${dir:?}"/*.lst.*.tmp
+    used=""
+    if [ -f "$CACHED_LISTS_INDEX" ]; then
+        while IFS= read -r url; do
+            used="$used $(get_cached_list_filepath "$url")"
+        done < "$CACHED_LISTS_INDEX"
+    fi
+
+    for filepath in "${dir:?}"/*.lst; do
+        [ -f "$filepath" ] || continue
+        case " $used " in
+        *" $filepath "*) ;;
+        *)
+            log "Removing unused cached list $filepath"
+            rm -f "$filepath"
+            ;;
+        esac
+    done
+}
+
+# Fills the nft sets and the plain-text rule sets of every section.
+# mode "update" downloads the lists first, mode "cached" uses the copies already stored.
+# Returns 1 when a list could not be downloaded or read.
+import_lists() {
+    local mode="$1"
+
+    import_lists_failed=0
+    : > "$CACHED_LISTS_INDEX"
+    config_foreach import_community_subnet_lists "section" "$mode"
+    config_foreach import_domains_from_remote_domain_lists "section" "$mode"
+    config_foreach import_subnets_from_remote_subnet_lists "section" "$mode"
+    cleanup_list_cache
+
+    return "$import_lists_failed"
+}
+
 import_community_subnet_lists() {
     local section="$1"
+    local mode="$2"
+
     local community_lists
     config_get community_lists "$section" "community_lists"
     if [ -n "$community_lists" ]; then
         log "Importing community subnet lists for '$section' section"
-        config_list_foreach "$section" "community_lists" import_community_service_subnet_list_handler
+        config_list_foreach "$section" "community_lists" import_community_service_subnet_list_handler "$mode"
     fi
 }
 
 import_community_service_subnet_list_handler() {
     local service="$1"
+    local mode="$2"
 
+    local url set_name="$NFT_COMMON_SET_NAME"
     case "$service" in
-    "twitter")
-        URL=$SUBNETS_TWITTER
-        ;;
-    "meta")
-        URL=$SUBNETS_META
-        ;;
-    "telegram")
-        URL=$SUBNETS_TELERAM
-        ;;
-    "cloudflare")
-        URL=$SUBNETS_CLOUDFLARE
-        ;;
-    "hetzner")
-        URL=$SUBNETS_HETZNER
-        ;;
-    "ovh")
-        URL=$SUBNETS_OVH
-        ;;
-    "digitalocean")
-        URL=$SUBNETS_DIGITALOCEAN
-        ;;
-    "cloudfront")
-        URL=$SUBNETS_CLOUDFRONT
-        ;;
+    "twitter") url=$SUBNETS_TWITTER ;;
+    "meta") url=$SUBNETS_META ;;
+    "telegram") url=$SUBNETS_TELERAM ;;
+    "cloudflare") url=$SUBNETS_CLOUDFLARE ;;
+    "hetzner") url=$SUBNETS_HETZNER ;;
+    "ovh") url=$SUBNETS_OVH ;;
+    "digitalocean") url=$SUBNETS_DIGITALOCEAN ;;
+    "cloudfront") url=$SUBNETS_CLOUDFRONT ;;
     "discord")
-        URL=$SUBNETS_DISCORD
-        nft_create_ipv4_set "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
-        nft add rule inet "$NFT_TABLE_NAME" mangle iifname "@$NFT_INTERFACE_SET_NAME" ip daddr \
-            "@$NFT_DISCORD_SET_NAME" udp dport '{ 19000-20000, 50000-65535 }' meta mark set "$NFT_FAKEIP_MARK" counter
+        url=$SUBNETS_DISCORD
+        set_name="$NFT_DISCORD_SET_NAME"
         ;;
-    "roblox")
-        URL=$SUBNETS_ROBLOX
-        ;;
+    "roblox") url=$SUBNETS_ROBLOX ;;
     *) return 0 ;;
     esac
 
-    local tmpfile http_proxy_address
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$URL" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $service list failed" "error"
-        rm -f "$tmpfile"
-        return 1
+    if [ "$mode" = "update" ]; then
+        update_cached_list "$url" || import_lists_failed=1
     fi
 
-    if [ "$service" = "discord" ]; then
-        nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_DISCORD_SET_NAME"
-    else
-        nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-    fi
-
-    rm -f "$tmpfile"
+    local filepath
+    filepath="$(get_cached_list "$url")" || return 0
+    nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$set_name"
 }
 
+# The plain-text domain lists of a section share one source rule set. It is rebuilt in a temporary file
+# and moved in place, so entries removed from the lists go away and sing-box never sees it half-built.
 import_domains_from_remote_domain_lists() {
     local section="$1"
-    local remote_domain_lists
+    local mode="$2"
+
+    local remote_domain_lists ruleset_filepath
     config_get remote_domain_lists "$section" "remote_domain_lists"
-    if [ -n "$remote_domain_lists" ]; then
-        log "Importing domains from remote domain lists for '$section' section"
-        config_list_foreach "$section" "remote_domain_lists" import_domains_from_remote_domain_list_handler "$section"
+    [ -n "$remote_domain_lists" ] || return 0
+
+    ruleset_filepath="$TMP_RULESET_FOLDER/$(get_ruleset_tag "$section" "remote" "domains").json"
+    building_ruleset_filepath="$ruleset_filepath.$$.tmp"
+    jq -n '{version: 3, rules: []}' > "$building_ruleset_filepath"
+
+    log "Importing domains from remote domain lists for '$section' section"
+    config_list_foreach "$section" "remote_domain_lists" import_domains_from_remote_domain_list_handler "$mode"
+
+    # Only sections with plain-text lists have this rule set in the sing-box config
+    if [ -f "$ruleset_filepath" ]; then
+        mv "$building_ruleset_filepath" "$ruleset_filepath"
+    else
+        rm -f "$building_ruleset_filepath"
     fi
 }
 
 import_domains_from_remote_domain_list_handler() {
     local url="$1"
-    local section="$2"
+    local mode="$2"
 
-    log "Importing domains from URL: $url"
-
-    local file_extension
-    file_extension=$(url_get_file_extension "$url")
-    log "Detected file extension: '$file_extension'" "debug"
-    case "$file_extension" in
+    case "$(url_get_file_extension "$url")" in
     json | srs)
         log "Rule set $url is updated separately" "debug"
-        ;;
-    *)
-        log "Import domains from a remote plain-text list"
-        import_domains_from_remote_plain_file "$url" "$section"
+        return 0
         ;;
     esac
-}
 
-import_domains_from_remote_plain_file() {
-    local url="$1"
-    local section="$2"
-
-    local tmpfile http_proxy_address items json_array
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$tmpfile"
-        return 1
+    if [ "$mode" = "update" ]; then
+        update_cached_list "$url" || import_lists_failed=1
     fi
 
-    convert_crlf_to_lf "$tmpfile"
-    ruleset_tag=$(get_ruleset_tag "$section" "remote" "domains")
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    import_plain_domain_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
-
-    rm -f "$tmpfile"
+    local filepath
+    filepath="$(get_cached_list "$url")" || return 0
+    import_plain_domain_list_to_local_source_ruleset_chunked "$filepath" "$building_ruleset_filepath"
 }
 
 import_subnets_from_remote_subnet_lists() {
     local section="$1"
-    local remote_subnet_lists
+    local mode="$2"
+
+    local remote_subnet_lists ruleset_filepath
     config_get remote_subnet_lists "$section" "remote_subnet_lists"
-    if [ -n "$remote_subnet_lists" ]; then
-        log "Importing subnets from remote subnet lists for '$section' section"
-        config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section"
+    [ -n "$remote_subnet_lists" ] || return 0
+
+    ruleset_filepath="$TMP_RULESET_FOLDER/$(get_ruleset_tag "$section" "remote" "subnets").json"
+    building_ruleset_filepath="$ruleset_filepath.$$.tmp"
+    jq -n '{version: 3, rules: []}' > "$building_ruleset_filepath"
+
+    log "Importing subnets from remote subnet lists for '$section' section"
+    config_list_foreach "$section" "remote_subnet_lists" import_subnets_from_remote_subnet_list_handler "$section" "$mode"
+
+    if [ -f "$ruleset_filepath" ]; then
+        mv "$building_ruleset_filepath" "$ruleset_filepath"
+    else
+        rm -f "$building_ruleset_filepath"
     fi
 }
 
 import_subnets_from_remote_subnet_list_handler() {
     local url="$1"
     local section="$2"
-
-    log "Importing subnets from URL: $url"
+    local mode="$3"
 
     local file_extension
     file_extension="$(url_get_file_extension "$url")"
-    log "Detected file extension: '$file_extension'" "debug"
     case "$file_extension" in
-    json)
-        log "Import subnets from a remote JSON list" "info"
-        import_subnets_from_remote_json_file "$url"
-        ;;
-    srs)
-        log "Import subnets from a remote SRS list" "info"
-        import_subnets_from_remote_srs_file "$url"
+    json | srs)
+        # Read from the rule set sing-box already uses, update_remote_rulesets downloads it
+        local ruleset_tag
+        ruleset_tag=$(get_ruleset_tag "$section" "$(url_get_basename "$url")" "remote-subnets")
+        import_subnets_from_ruleset_file \
+            "$(get_cached_ruleset_filepath "$ruleset_tag" "$(get_ruleset_format_by_file_extension "$file_extension")")" \
+            "$file_extension" "$url" || import_lists_failed=1
         ;;
     *)
-        log "Import subnets from a remote plain-text list" "info"
-        import_subnets_from_remote_plain_file "$url" "$section"
+        if [ "$mode" = "update" ]; then
+            update_cached_list "$url" || import_lists_failed=1
+        fi
+
+        local filepath
+        filepath="$(get_cached_list "$url")" || return 0
+        import_plain_subnet_list_to_local_source_ruleset_chunked "$filepath" "$building_ruleset_filepath"
+        nft_add_set_elements_from_file_chunked "$filepath" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
         ;;
     esac
 }
 
-import_subnets_from_remote_json_file() {
-    local url="$1"
-    local json_tmpfile subnets_tmpfile http_proxy_address
+import_subnets_from_ruleset_file() {
+    local ruleset_filepath="$1"
+    local file_extension="$2"
+    local url="$3"
+
+    [ -s "$ruleset_filepath" ] || return 0
+
+    local json_tmpfile subnets_tmpfile status=0
     json_tmpfile="$(mktemp)"
     subnets_tmpfile="$(mktemp)"
-    http_proxy_address="$(get_service_proxy_address)"
 
-    download_to_file "$url" "$json_tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$json_tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$json_tmpfile" "$subnets_tmpfile"
-        return 1
+    if [ "$file_extension" = "srs" ]; then
+        decompile_binary_ruleset "$ruleset_filepath" "$json_tmpfile" || status=1
+    else
+        cp "$ruleset_filepath" "$json_tmpfile" || status=1
     fi
 
-    if ! extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
+    if [ "$status" -eq 0 ] && extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
+        nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
+    else
         log "Cannot read subnets from $url, they will not be routed" "error"
-        rm -f "$json_tmpfile" "$subnets_tmpfile"
-        return 1
+        status=1
     fi
 
-    nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
     rm -f "$json_tmpfile" "$subnets_tmpfile"
-}
-
-import_subnets_from_remote_srs_file() {
-    local url="$1"
-
-    local binary_tmpfile json_tmpfile subnets_tmpfile http_proxy_address
-    binary_tmpfile="$(mktemp)"
-    json_tmpfile="$(mktemp)"
-    subnets_tmpfile="$(mktemp)"
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$binary_tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$binary_tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-        return 1
-    fi
-
-    if ! decompile_binary_ruleset "$binary_tmpfile" "$json_tmpfile"; then
-        log "Failed to decompile binary rule set file" "error"
-        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-        return 1
-    fi
-
-    if ! extract_ip_cidr_from_json_ruleset_to_file "$json_tmpfile" "$subnets_tmpfile"; then
-        log "Cannot read subnets from $url, they will not be routed" "error"
-        rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-        return 1
-    fi
-
-    nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-    rm -f "$binary_tmpfile" "$json_tmpfile" "$subnets_tmpfile"
-}
-
-import_subnets_from_remote_plain_file() {
-    local url="$1"
-    local section="$2"
-
-    local tmpfile http_proxy_address items json_array
-    tmpfile=$(mktemp)
-    http_proxy_address="$(get_service_proxy_address)"
-
-    download_to_file "$url" "$tmpfile" "$http_proxy_address"
-
-    if [ $? -ne 0 ] || [ ! -s "$tmpfile" ]; then
-        log "Download $url list failed" "error"
-        rm -f "$tmpfile"
-        return 1
-    fi
-
-    convert_crlf_to_lf "$tmpfile"
-
-    ruleset_tag=$(get_ruleset_tag "$section" "remote" "subnets")
-    ruleset_filepath="$TMP_RULESET_FOLDER/$ruleset_tag.json"
-    import_plain_subnet_list_to_local_source_ruleset_chunked "$tmpfile" "$ruleset_filepath"
-    nft_add_set_elements_from_file_chunked "$tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
-
-    rm -f "$tmpfile"
+    return "$status"
 }
 
 ## Support functions
