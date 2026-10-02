@@ -62,6 +62,7 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `sing-box-down-subnets-direct` | sing-box лежит: подсети из списков доступны напрямую, когда он возвращается — снова идут через него |
 | `no-cached-lists-on-boot` | Первый запуск без скачанных списков при недоступном GitHub, затем списки появляются |
 | `cli-returns-promptly` | `okop reload` и `okop restart` через пайп (как по SSH без терминала) не ждут фоновых задач |
+| `cron-started-for-updates` | На роутере нет crontab и cron не запущен: okop добавляет задание обновления списков и запускает cron |
 | `damaged-cached-list` | Сохранённый список повреждён, GitHub недоступен |
 | `direct-download-fallback` | Прокси для скачивания списков не работает: прямое скачивание только при включённой настройке |
 | `dont-touch-dhcp-manual-setup` | «Не трогать мой DHCP!» с dnsmasq, настроенным на sing-box вручную: okop не трогает эти настройки |

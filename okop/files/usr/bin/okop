@@ -778,7 +778,8 @@ dns_guard_stop() {
 }
 
 add_cron_job() {
-    ## Future: make a check so that it doesn't recreate many times
+    local section="$1"
+
     local community_lists remote_domain_lists remote_subnet_lists update_interval
     config_get community_lists "$section" "community_lists"
     config_get remote_domain_lists "$section" "remote_domain_lists"
@@ -811,16 +812,26 @@ add_cron_job() {
         [ -n "$remote_domain_lists" ] ||
         [ -n "$remote_subnet_lists" ]; then
         remove_cron_job
-        crontab -l | {
+        crontab -l 2> /dev/null | {
             cat
             echo "$cron_job"
         } | crontab -
         log "The cron job has been created: $cron_job"
+
+        # cron does not start at boot without any crontab, so with okop's first one it is not running yet
+        if ! pidof crond > /dev/null; then
+            if /etc/init.d/cron enabled; then
+                log "Starting cron for the lists update"
+                /etc/init.d/cron start
+            else
+                log "cron is disabled, lists will not be updated automatically" "warn"
+            fi
+        fi
     fi
 }
 
 remove_cron_job() {
-    (crontab -l | grep -v "/usr/bin/okop list_update") | crontab -
+    (crontab -l 2> /dev/null | grep -v "/usr/bin/okop list_update") | crontab -
     log "The cron job removed"
 }
 
