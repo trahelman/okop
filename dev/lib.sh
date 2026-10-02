@@ -119,6 +119,21 @@ client_fetches() {
     on_client curl -sS -o /dev/null -m 10 "$url"
 }
 
+# The service answers "fakeip": true only when it sees the connection arrive through sing-box
+client_confirms_fakeip() {
+    on_client curl -s -m 10 https://fakeip.podkop.fyi/check | grep -q '"fakeip": true'
+}
+
+# dnsmasq actually forwards to sing-box. "okop started" does not imply this: reload leaves dnsmasq
+# on the upstream servers, and then nothing from the lists is routed
+dnsmasq_uses_singbox() {
+    on_router uci -q get dhcp.@dnsmasq[0].server | grep -q '127\.0\.0\.42'
+}
+
+dns_guard_running() {
+    on_router test -f /var/run/okop_dns_guard.pid
+}
+
 singbox_running() {
     on_router pidof sing-box > /dev/null
 }

@@ -27,7 +27,8 @@ else
     fail "the proxy did not receive the connection to example.com" || result=1
 fi
 
-if on_client curl -s -m 10 https://fakeip.podkop.fyi/check | grep -q '"fakeip": true'; then
+# Retried: the service is reached through the real upstream, so one slow lookup is not a failure
+if wait_for 20 client_confirms_fakeip; then
     pass "fakeip.podkop.fyi/check confirms FakeIP"
 else
     fail "fakeip.podkop.fyi/check does not confirm FakeIP" || result=1
