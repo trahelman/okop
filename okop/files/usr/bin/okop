@@ -773,11 +773,13 @@ dns_guard_stop() {
     rm -f "$DNS_GUARD_PID_FILE"
 }
 
-# Converts a check interval of the form 15s, 1m into seconds
+# Converts a check interval of the form 15s or 1m into seconds. Anything else (1m30s, 1h, a typo) gives
+# 15 seconds: an arithmetic error would end the guard's shell and stop the switching silently.
 duration_to_seconds() {
     local duration="$1"
 
     case "$duration" in
+    "" | *[!0-9ms]* | [ms]* | *[ms]*[0-9ms]) echo 15 ;;
     *m) echo $((${duration%m} * 60)) ;;
     *s) echo "${duration%s}" ;;
     *) echo "$duration" ;;
@@ -842,7 +844,7 @@ fallback_guard_check_group() {
 
     local type
     config_get type "$group" "type"
-    [ "$type" = "fallback" ] || return 0
+    [ "$type" = "fallback" ] && [ "$stopping" -eq 0 ] || return 0
 
     # Each group is checked at its own interval
     local interval left
@@ -885,7 +887,8 @@ fallback_guard_check_group() {
         [ "$i" -eq "$current_index" ] && eval "current_fail=\${fb_${group}__${member}_fail:-0}"
     done
 
-    local target="" ok fail
+    local target="" target_index=0 current_failed=0 ok fail
+    [ "$current_index" -gt 0 ] || current_failed=1
     i=0
     for member in $members; do
         i=$((i + 1))
@@ -895,25 +898,45 @@ fallback_guard_check_group() {
             # A sing-box outbound that just came back may fail again, it is taken back once steady
             if [ "$ok" -ge "$FALLBACK_MIN_SUCCESSES" ]; then
                 target="$member"
+                target_index=$i
                 break
             fi
         elif [ "$i" -eq "$current_index" ]; then
             [ "$fail" -lt "$FALLBACK_MAX_FAILURES" ] && break
+            current_failed=1
         elif [ "$ok" -ge 1 ]; then
             target="$member"
+            target_index=$i
             break
         fi
     done
 
-    [ -n "$target" ] && [ "$target" != "$current_member" ] || return 0
+    # Nothing after the failed member responds: one that answered before it is better than none
+    if [ -z "$target" ] && [ "$current_failed" -eq 1 ]; then
+        i=0
+        for member in $members; do
+            i=$((i + 1))
+            [ "$i" -lt "$current_index" ] || [ "$current_index" -eq 0 ] || break
+            eval "ok=\${fb_${group}__${member}_ok:-0}"
+            if [ "$ok" -ge 1 ]; then
+                target="$member"
+                target_index=$i
+                break
+            fi
+        done
+    fi
 
-    if fallback_clash_api -X PUT "$clash_api_url/proxies/$group_tag" \
+    [ -n "$target" ] && [ "$target" != "$current_member" ] && [ "$stopping" -eq 0 ] || return 0
+
+    if fallback_clash_api -f -X PUT "$clash_api_url/proxies/$group_tag" \
         --data-raw "{\"name\":\"$(get_outbound_tag_by_section "$target")\"}" > /dev/null; then
-        if [ -n "$current_member" ] && [ "$current_index" -lt "$i" ]; then
-            log "Connection '$group': '$current_member' does not respond, switched to '$target'" "warn"
-        else
+        if [ "$current_failed" -eq 1 ]; then
+            log "Connection '$group': '${current_member:-$current}' does not respond, switched to '$target'" "warn"
+        elif [ "$target_index" -lt "$current_index" ]; then
             log "Connection '$group': '$target' responds again, switched back to it"
         fi
+    else
+        log "Connection '$group': could not switch to '$target' through the Clash API" "error"
     fi
 }
 
@@ -927,8 +950,20 @@ fallback_guard_start() {
 }
 
 fallback_guard_stop() {
-    if okop_background_job_running "$FALLBACK_GUARD_PID_FILE"; then
-        kill "$(cat "$FALLBACK_GUARD_PID_FILE")" 2> /dev/null
+    if ! okop_background_job_running "$FALLBACK_GUARD_PID_FILE"; then
+        rm -f "$FALLBACK_GUARD_PID_FILE"
+        return 0
+    fi
+
+    # An old guard still finishing its checks could switch a group of the sing-box started next
+    local pid i
+    pid="$(cat "$FALLBACK_GUARD_PID_FILE")"
+    if kill "$pid" 2> /dev/null; then
+        for i in $(seq 1 10); do
+            kill -0 "$pid" 2> /dev/null || break
+            sleep 1
+        done
+        kill -0 "$pid" 2> /dev/null && kill -9 "$pid" 2> /dev/null
         log "Stopped the fallback guard" "debug"
     fi
     rm -f "$FALLBACK_GUARD_PID_FILE"
@@ -1197,7 +1232,70 @@ sing_box_configure_outbounds() {
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    config_foreach generate_for_section "outbound" configure_outbound
+    used_connections=" $(get_used_connections) "
+    config_foreach generate_for_section "outbound" configure_used_outbound
+}
+
+# Connections that something refers to: sections, the list download, groups (recursively), and those
+# with a mixed proxy
+get_used_connections() {
+    local used=""
+
+    _collect_section_connection() {
+        local connection_type outbound
+        config_get connection_type "$1" "connection_type"
+        config_get outbound "$1" "outbound"
+        [ "$connection_type" = "outbound" ] && add_used_connection "$outbound"
+    }
+
+    _collect_mixed_proxy_connection() {
+        local mixed_proxy_enabled
+        config_get_bool mixed_proxy_enabled "$1" "mixed_proxy_enabled" 0
+        [ "$mixed_proxy_enabled" -eq 1 ] && add_used_connection "$1"
+    }
+
+    config_foreach _collect_section_connection "section"
+    config_foreach _collect_mixed_proxy_connection "outbound"
+    # The IP check service is routed through it, see sing_box_configure_route
+    add_used_connection "$(get_first_section_outbound)"
+
+    local download_lists_via_proxy
+    config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
+    if [ "$download_lists_via_proxy" -eq 1 ]; then
+        local download_outbound
+        config_get download_outbound "settings" "download_lists_via_outbound"
+        is_connection "$download_outbound" || download_outbound="$(get_first_section_outbound)"
+        add_used_connection "$download_outbound"
+    fi
+
+    echo "$used"
+}
+
+add_used_connection() {
+    local outbound="$1"
+
+    [ -n "$outbound" ] || return 0
+    case " $used " in
+    *" $outbound "*) return 0 ;;
+    esac
+    used="$used $outbound"
+
+    local type members member
+    config_get type "$outbound" "type"
+    is_connection_group "$type" || return 0
+    config_get members "$outbound" "members"
+    for member in $members; do
+        add_used_connection "$member"
+    done
+}
+
+configure_used_outbound() {
+    local outbound="$1"
+
+    case "$used_connections" in
+    *" $outbound "*) configure_outbound "$outbound" ;;
+    *) log "Connection '$outbound' is not used, it is left out of the sing-box configuration" "debug" ;;
+    esac
 }
 
 # Section and connection names become sing-box tags: "direct" gives direct-out and "service" gives
@@ -2663,7 +2761,7 @@ show_config() {
         }
         { print }
     ' "$OKOP_CONFIG" | sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
-        -e 's/\(option url\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option url \).*/\1'\''MASKED'\''/g' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \

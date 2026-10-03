@@ -803,7 +803,7 @@ async function getDashboardSections() {
     connections.flatMap((connection) => toArray(connection.members))
   );
   const data = connections.filter(
-    (connection) => usedBySection.has(connection[".name"]) || !members.has(connection[".name"])
+    (connection) => usedBySection.has(connection[".name"]) || !members.has(connection[".name"]) || GROUP_TYPES.includes(connection.type)
   ).map((connection) => {
     const name = connection[".name"];
     const code = tagOf(name);

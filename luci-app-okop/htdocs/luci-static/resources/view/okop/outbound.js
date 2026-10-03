@@ -153,6 +153,25 @@ function findCycle(name, members) {
   return visit(name, []);
 }
 
+// Why a member list cannot be saved, or null
+function membersError(name, members) {
+  if (members.includes(name)) {
+    return _("A group cannot contain itself");
+  }
+
+  const missing = members.find((member) => !connectionNames().includes(member));
+  if (missing) {
+    return _("Connection %s does not exist").format(missing);
+  }
+
+  const cycle = findCycle(name, members);
+  if (cycle) {
+    return _("Groups contain each other: %s").format(cycle.join(" → "));
+  }
+
+  return null;
+}
+
 function lines(values) {
   // Arrays, not strings: LuCI inserts a string child as HTML, and these come from user input
   return E("div", {}, values.map((value) => E("div", {}, [value])));
@@ -347,24 +366,30 @@ function createOutboundContent(section) {
       .forEach((name) => this.value(name, name));
     return form.DynamicList.prototype.load.apply(this, arguments);
   };
+  // Runs for names typed into the field, not for names picked from the list
   o.validate = function (section_id, value) {
     if (!value) {
       return true;
     }
-    if (value === section_id) {
-      return _("A group cannot contain itself");
-    }
-    if (uci.get("okop", value) !== "outbound") {
-      return _("Connection %s does not exist").format(value);
+
+    return membersError(section_id, [value]) || true;
+  };
+  // The whole list is checked on save: the modal form drops errors silently, so the message is put
+  // into the field itself. okop would refuse to start with such a group.
+  o.parse = function (section_id) {
+    if (this.isActive(section_id)) {
+      const message = membersError(section_id, toArray(this.formvalue(section_id)));
+      const field = document.querySelector('.modal [data-name="members"] .cbi-value-field');
+      field?.querySelector(".okop-members-error")?.remove();
+      if (message) {
+        field?.append(
+          E("div", { class: "alert-message warning okop-members-error" }, [message]),
+        );
+        return Promise.reject(new TypeError(message));
+      }
     }
 
-    // A cycle is only visible with the whole member list
-    const cycle = findCycle(section_id, toArray(this.formvalue(section_id)));
-    if (cycle) {
-      return _("Groups contain each other: %s").format(cycle.join(" → "));
-    }
-
-    return true;
+    return form.DynamicList.prototype.parse.apply(this, arguments);
   };
 
   o = section.option(
@@ -378,7 +403,9 @@ function createOutboundContent(section) {
   );
   o.depends("type", "fallback");
   o.depends("type", "urltest");
-  // A fallback group should notice a failure quickly, the fastest member can be picked less often
+  // A fallback group should notice a failure quickly, the fastest member can be picked less often.
+  // Written even when unchanged: the default shown depends on the saved type.
+  o.forcewrite = true;
   o.cfgvalue = function (section_id) {
     return (
       uci.get("okop", section_id, "check_interval") ||
