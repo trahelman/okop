@@ -20,14 +20,26 @@ msgstr ""
 msgid "%s was not renamed: %s"
 msgstr "%s не переименовано: %s"
 
+msgid "⚠ sing-box DNS server is unreachable"
+msgstr "⚠ DNS-сервер sing-box недоступен"
+
+msgid "⚠ sing-box is not responding"
+msgstr "⚠ sing-box не отвечает"
+
 msgid "✔ Enabled"
 msgstr "✔ Включено"
 
 msgid "✔ Running"
 msgstr "✔ Работает"
 
+msgid "✔ Working"
+msgstr "✔ Работает"
+
 msgid "✘ Disabled"
 msgstr "✘ Отключено"
+
+msgid "✘ Not running"
+msgstr "✘ Не запущена"
 
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
@@ -197,6 +209,15 @@ msgstr "Отключить QUIC протокол для улучшения со�
 msgid "Disabled"
 msgstr "Отключено"
 
+msgid "DNS and traffic to the lists go directly"
+msgstr "DNS и трафик к спискам идут напрямую"
+
+msgid "DNS goes through the regular servers, domains from the lists go directly"
+msgstr "DNS идёт через обычные серверы, домены из списков — напрямую"
+
+msgid "DNS guard"
+msgstr "Защита DNS"
+
 msgid "DNS on router"
 msgstr "DNS на роутере"
 
@@ -217,6 +238,9 @@ msgstr "DNS-сервер"
 
 msgid "DNS server address cannot be empty"
 msgstr "Адрес DNS-сервера не может быть пустым"
+
+msgid "dnsmasq is not switched: \"Dont Touch My DHCP!\" is on"
+msgstr "dnsmasq не переключается: включено «Dont Touch My DHCP!»"
 
 msgid "Do not panic, everything can be fixed, just..."
 msgstr "Не паникуйте, всё можно исправить, просто..."
@@ -761,6 +785,9 @@ msgstr "Настройки"
 msgid "Show sing-box config"
 msgstr "Показать sing-box конфигурацию"
 
+msgid "since %s"
+msgstr "с %s"
+
 msgid "Sing-box"
 msgstr "Sing-box"
 
@@ -859,6 +886,9 @@ msgstr "Время в секундах для кэширования DNS зап�
 
 msgid "Traffic"
 msgstr "Трафик"
+
+msgid "Traffic to the lists goes directly"
+msgstr "Трафик к спискам идёт напрямую"
 
 msgid "Traffic Total"
 msgstr "Всего трафика"

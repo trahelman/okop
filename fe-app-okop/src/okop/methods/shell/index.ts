@@ -24,6 +24,10 @@ export const OkopShellMethods = {
     callBaseMethod<Okop.GetSingBoxStatus>(
       Okop.AvailableMethods.GET_SING_BOX_STATUS,
     ),
+  getDnsGuardStatus: async () =>
+    callBaseMethod<Okop.GetDnsGuardStatus>(
+      Okop.AvailableMethods.GET_DNS_GUARD_STATUS,
+    ),
   getClashApiProxies: async () =>
     callBaseMethod<ClashAPI.Proxies>(Okop.AvailableMethods.CLASH_API, [
       Okop.AvailableClashAPIMethods.GET_PROXIES,

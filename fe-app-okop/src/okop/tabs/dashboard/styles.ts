@@ -44,6 +44,15 @@ export const styles = `
     color: var(--error-color-medium, red);
 }
 
+.pdk_dashboard-page__widgets-section__item__row--warning .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__widgets-section__item__row__hint {
+    font-size: 0.85em;
+    opacity: 0.7;
+}
+
 .pdk_dashboard-page__widgets-section__item__row__key {}
 
 .pdk_dashboard-page__widgets-section__item__row__value {}

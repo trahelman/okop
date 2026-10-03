@@ -5,6 +5,8 @@ interface IRenderWidgetProps {
   items: Array<{
     key: string;
     value: string;
+    // A line under the row saying what the value means
+    hint?: string;
     attributes?: {
       class?: string;
     };
@@ -59,6 +61,18 @@ function renderDefaultState({ title, items }: IRenderWidgetProps) {
             { class: 'pdk_dashboard-page__widgets-section__item__row__value' },
             item.value,
           ),
+          ...(item.hint
+            ? [
+                E(
+                  'div',
+                  {
+                    class:
+                      'pdk_dashboard-page__widgets-section__item__row__hint',
+                  },
+                  [item.hint],
+                ),
+              ]
+            : []),
         ],
       ),
     ),

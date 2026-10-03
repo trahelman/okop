@@ -159,7 +159,12 @@ export interface StoreType {
   servicesInfoWidget: {
     loading: boolean;
     failed: boolean;
-    data: { singbox: number; okop: number };
+    data: {
+      singbox: number;
+      okop: number;
+      // Absent when the status could not be read
+      dnsGuard?: Okop.GetDnsGuardStatus;
+    };
   };
   sectionsWidget: {
     loading: boolean;

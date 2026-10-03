@@ -10,15 +10,19 @@ import { renderSections, renderWidget } from './partials';
 import { fetchServicesInfo } from '../../fetchers';
 import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
 import { markUnreachable } from './markUnreachable';
+import { getDnsGuardRow } from './getDnsGuardRow';
 import { Okop } from '../../types';
 
 // Latency is tested when the dashboard opens and then periodically: nothing else tests a connection a
 // section uses directly, and its card kept the last result after the connection went down.
 const LATENCY_TEST_INTERVAL = 60_000;
+// The DNS guard switches within about 15 seconds, and reading the state sends nothing anywhere
+const SERVICES_INFO_INTERVAL = 15_000;
 
 // Outbounds a latency test on this page covered
 const testedOutbounds = new Set<string>();
 let latencyTestTimer: ReturnType<typeof setInterval> | undefined;
+let servicesInfoTimer: ReturnType<typeof setInterval> | undefined;
 
 // Fetchers
 
@@ -373,6 +377,9 @@ async function renderServicesInfoWidget() {
             : 'pdk_dashboard-page__widgets-section__item__row--error',
         },
       },
+      ...(servicesInfoWidget.data.dnsGuard
+        ? [getDnsGuardRow(servicesInfoWidget.data.dnsGuard)]
+        : []),
     ],
   });
 
@@ -419,6 +426,10 @@ async function onPageMount() {
     LATENCY_TEST_INTERVAL,
   );
   testAllLatency(true);
+  servicesInfoTimer = setInterval(
+    () => fetchServicesInfo(),
+    SERVICES_INFO_INTERVAL,
+  );
   await fetchServicesInfo();
   await connectToClashSockets();
 }
@@ -428,6 +439,8 @@ function onPageUnmount() {
   store.unsubscribe(onStoreUpdate);
   clearInterval(latencyTestTimer);
   latencyTestTimer = undefined;
+  clearInterval(servicesInfoTimer);
+  servicesInfoTimer = undefined;
   testedOutbounds.clear();
   // Clear store
   store.reset([
