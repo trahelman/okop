@@ -972,7 +972,7 @@ sing_box_configure_service() {
     sing_box_enabled="$(uci_get "sing-box" "main" "enabled")"
     sing_box_user="$(uci_get "sing-box" "main" "user")"
 
-    if [ "$sing_box_enabled" -ne 1 ]; then
+    if [ "$sing_box_enabled" != "1" ]; then
         uci_set "sing-box" "main" "enabled" 1
         uci_commit "sing-box"
         log "sing-box service has been enabled"
@@ -1179,7 +1179,8 @@ configure_outbound_handler() {
             domain_resolver_dns_server_address outbound_tag domain_resolver_tag dns_domain_resolver
 
         config_get interface_name "$section" "interface"
-        config_get domain_resolver_enabled "$section" "domain_resolver_enabled"
+        # Absent until "Domain Resolver" is saved once in LuCI
+        config_get_bool domain_resolver_enabled "$section" "domain_resolver_enabled" 0
         config_get domain_resolver_dns_type "$section" "domain_resolver_dns_type" "udp"
         config_get domain_resolver_dns_server "$section" "domain_resolver_dns_server" "8.8.8.8"
 
