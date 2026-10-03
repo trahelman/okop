@@ -55,6 +55,7 @@ export namespace Okop {
     GET_STATUS = 'get_status',
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
+    GET_DNS_GUARD_STATUS = 'get_dns_guard_status',
     CLASH_API = 'clash_api',
     RESTART = 'restart',
     START = 'start',
@@ -168,6 +169,21 @@ export namespace Okop {
   export interface GetStatus {
     enabled: number;
     status: string;
+  }
+
+  export type DnsGuardState =
+    | 'ok'
+    | 'sing_box_down'
+    | 'dns_server_down'
+    | 'stopped';
+
+  export interface GetDnsGuardStatus {
+    running: number;
+    state: DnsGuardState;
+    // Unix time of the last switch, 0 while the guard has not recorded it
+    since: number;
+    // 0 with "Dont Touch My DHCP!": the guard does not switch dnsmasq
+    manage_dnsmasq: number;
   }
 
   export interface GetSingBoxStatus {

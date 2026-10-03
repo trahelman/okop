@@ -639,6 +639,7 @@ var Okop;
     AvailableMethods2["GET_STATUS"] = "get_status";
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
     AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
+    AvailableMethods2["GET_DNS_GUARD_STATUS"] = "get_dns_guard_status";
     AvailableMethods2["CLASH_API"] = "clash_api";
     AvailableMethods2["RESTART"] = "restart";
     AvailableMethods2["START"] = "start";
@@ -676,6 +677,9 @@ var OkopShellMethods = {
   ),
   getSingBoxStatus: async () => callBaseMethod(
     Okop.AvailableMethods.GET_SING_BOX_STATUS
+  ),
+  getDnsGuardStatus: async () => callBaseMethod(
+    Okop.AvailableMethods.GET_DNS_GUARD_STATUS
   ),
   getClashApiProxies: async () => callBaseMethod(Okop.AvailableMethods.CLASH_API, [
     Okop.AvailableClashAPIMethods.GET_PROXIES
@@ -1884,7 +1888,16 @@ function renderDefaultState2({ title, items }) {
             "span",
             { class: "pdk_dashboard-page__widgets-section__item__row__value" },
             item.value
-          )
+          ),
+          ...item.hint ? [
+            E(
+              "div",
+              {
+                class: "pdk_dashboard-page__widgets-section__item__row__hint"
+              },
+              [item.hint]
+            )
+          ] : []
         ]
       )
     )
@@ -1970,9 +1983,10 @@ function prettyBytes(n) {
 
 // src/okop/fetchers/fetchServicesInfo.ts
 async function fetchServicesInfo() {
-  const [okop, singbox] = await Promise.all([
+  const [okop, singbox, dnsGuard] = await Promise.all([
     OkopShellMethods.getStatus(),
-    OkopShellMethods.getSingBoxStatus()
+    OkopShellMethods.getSingBoxStatus(),
+    OkopShellMethods.getDnsGuardStatus()
   ]);
   if (!okop.success || !singbox.success) {
     store.set({
@@ -1988,7 +2002,11 @@ async function fetchServicesInfo() {
       servicesInfoWidget: {
         loading: false,
         failed: false,
-        data: { singbox: singbox.data.running, okop: okop.data.enabled }
+        data: {
+          singbox: singbox.data.running,
+          okop: okop.data.enabled,
+          dnsGuard: dnsGuard.success && typeof dnsGuard.data === "object" ? dnsGuard.data : void 0
+        }
       }
     });
   }
@@ -2005,10 +2023,79 @@ function markUnreachable(groups, tested) {
   }));
 }
 
+// src/okop/tabs/dashboard/getDnsGuardRow.ts
+var ROW_CLASS = "pdk_dashboard-page__widgets-section__item__row";
+function uiLocale() {
+  return typeof document !== "undefined" && document.documentElement.lang || void 0;
+}
+function formatSince(since, now = /* @__PURE__ */ new Date()) {
+  if (!since) {
+    return "";
+  }
+  const date = new Date(since * 1e3);
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString(uiLocale(), {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+  return date.toLocaleString(uiLocale(), {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+function withSince(text, since, now) {
+  const time = formatSince(since, now);
+  return time ? `${text} ${_("since %s").replace("%s", time)}` : text;
+}
+function getDnsGuardRow(status, now = /* @__PURE__ */ new Date()) {
+  const key = _("DNS guard");
+  const manageDnsmasq = Boolean(status.manage_dnsmasq);
+  switch (status.state) {
+    case "ok":
+      return {
+        key,
+        value: _("\u2714 Working"),
+        hint: manageDnsmasq ? void 0 : _('dnsmasq is not switched: "Dont Touch My DHCP!" is on'),
+        attributes: { class: `${ROW_CLASS}--success` }
+      };
+    case "sing_box_down":
+      return {
+        key,
+        value: withSince(_("\u26A0 sing-box is not responding"), status.since, now),
+        hint: manageDnsmasq ? _("DNS and traffic to the lists go directly") : _("Traffic to the lists goes directly"),
+        attributes: { class: `${ROW_CLASS}--warning` }
+      };
+    case "dns_server_down":
+      return {
+        key,
+        value: withSince(
+          _("\u26A0 sing-box DNS server is unreachable"),
+          status.since,
+          now
+        ),
+        hint: _(
+          "DNS goes through the regular servers, domains from the lists go directly"
+        ),
+        attributes: { class: `${ROW_CLASS}--warning` }
+      };
+    default:
+      return {
+        key,
+        value: _("\u2718 Not running"),
+        attributes: { class: `${ROW_CLASS}--error` }
+      };
+  }
+}
+
 // src/okop/tabs/dashboard/initController.ts
 var LATENCY_TEST_INTERVAL = 6e4;
+var SERVICES_INFO_INTERVAL = 15e3;
 var testedOutbounds = /* @__PURE__ */ new Set();
 var latencyTestTimer;
+var servicesInfoTimer;
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
   store.set({
@@ -2302,7 +2389,8 @@ async function renderServicesInfoWidget() {
         attributes: {
           class: servicesInfoWidget.data.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
         }
-      }
+      },
+      ...servicesInfoWidget.data.dnsGuard ? [getDnsGuardRow(servicesInfoWidget.data.dnsGuard)] : []
     ]
   });
   container.replaceChildren(renderedWidget);
@@ -2333,6 +2421,10 @@ async function onPageMount() {
     LATENCY_TEST_INTERVAL
   );
   testAllLatency(true);
+  servicesInfoTimer = setInterval(
+    () => fetchServicesInfo(),
+    SERVICES_INFO_INTERVAL
+  );
   await fetchServicesInfo();
   await connectToClashSockets();
 }
@@ -2340,6 +2432,8 @@ function onPageUnmount() {
   store.unsubscribe(onStoreUpdate);
   clearInterval(latencyTestTimer);
   latencyTestTimer = void 0;
+  clearInterval(servicesInfoTimer);
+  servicesInfoTimer = void 0;
   testedOutbounds.clear();
   store.reset([
     "bandwidthWidget",
@@ -2440,6 +2534,15 @@ var styles = `
 
 .pdk_dashboard-page__widgets-section__item__row--error .pdk_dashboard-page__widgets-section__item__row__value {
     color: var(--error-color-medium, red);
+}
+
+.pdk_dashboard-page__widgets-section__item__row--warning .pdk_dashboard-page__widgets-section__item__row__value {
+    color: var(--warn-color-medium, orange);
+}
+
+.pdk_dashboard-page__widgets-section__item__row__hint {
+    font-size: 0.85em;
+    opacity: 0.7;
 }
 
 .pdk_dashboard-page__widgets-section__item__row__key {}

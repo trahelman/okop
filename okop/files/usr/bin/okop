@@ -681,12 +681,29 @@ interception_detach() {
     fi
 }
 
+# What the DNS guard provides, from the actual state rather than the guard's counters:
+#   ok              - DNS and the lists go through sing-box
+#   sing_box_down   - sing-box does not answer: the lists go directly, dnsmasq uses the upstream servers
+#   dns_server_down - sing-box cannot resolve through its DNS server: dnsmasq uses the upstream servers
+# With dont_touch_dhcp the guard does not switch dnsmasq, so only the lists count.
+dns_guard_state() {
+    local manage_dnsmasq="$1"
+
+    if ! ip -4 rule list | grep -q "lookup $RT_TABLE_NAME"; then
+        echo "sing_box_down"
+    elif [ "$manage_dnsmasq" -eq 1 ] && ! dnsmasq_uses_sing_box; then
+        echo "dns_server_down"
+    else
+        echo "ok"
+    fi
+}
+
 # Keeps the LAN working while sing-box is down: traffic to the lists is not sent to it, and dnsmasq uses
 # sing-box only while sing-box both answers DNS queries and can still resolve through its upstream
 # server. dont_touch_dhcp says "do not switch dnsmasq to sing-box", so only switching obeys it;
 # dnsmasq_restore puts the user's settings back and does nothing when dnsmasq does not point at sing-box.
 dns_guard() {
-    local failures=0 unresolved=0 stopping=0 successes manage_dnsmasq=1 dont_touch_dhcp
+    local failures=0 unresolved=0 stopping=0 successes manage_dnsmasq=1 dont_touch_dhcp state recorded_state=""
     # start has just seen sing-box serving, one more answer is enough
     successes=$((DNS_GUARD_MIN_SUCCESSES - 1))
 
@@ -733,6 +750,13 @@ dns_guard() {
             fi
         fi
 
+        # For the dashboard: the time is that of the switch, so it is written only on a change
+        state="$(dns_guard_state "$manage_dnsmasq")"
+        if [ "$state" != "$recorded_state" ]; then
+            echo "$state $(date +%s)" > "$DNS_GUARD_STATE_FILE"
+            recorded_state="$state"
+        fi
+
         # wait is interrupted by TERM, unlike sleep
         sleep "$DNS_GUARD_INTERVAL" &
         wait $!
@@ -750,7 +774,7 @@ dns_guard_start() {
 
 dns_guard_stop() {
     if ! okop_background_job_running "$DNS_GUARD_PID_FILE"; then
-        rm -f "$DNS_GUARD_PID_FILE"
+        rm -f "$DNS_GUARD_PID_FILE" "$DNS_GUARD_STATE_FILE"
         return 0
     fi
 
@@ -770,7 +794,7 @@ dns_guard_stop() {
         fi
         log "Stopped DNS guard" "debug"
     fi
-    rm -f "$DNS_GUARD_PID_FILE"
+    rm -f "$DNS_GUARD_PID_FILE" "$DNS_GUARD_STATE_FILE"
 }
 
 # Converts a check interval of the form 15s or 1m into seconds. Anything else (1m30s, 1h, a typo) gives
@@ -2942,6 +2966,29 @@ get_status() {
     echo "{\"enabled\":$enabled,\"status\":\"$status\"}"
 }
 
+# For the dashboard. "since" is the time of the last switch, 0 while the guard has not recorded the
+# current state yet (it does so at the end of each check).
+get_dns_guard_status() {
+    local running=0 state="stopped" since=0 manage_dnsmasq=1 dont_touch_dhcp recorded_state recorded_since
+
+    config_get_bool dont_touch_dhcp "settings" "dont_touch_dhcp" 0
+    [ "$dont_touch_dhcp" -eq 1 ] && manage_dnsmasq=0
+
+    if okop_background_job_running "$DNS_GUARD_PID_FILE"; then
+        running=1
+        state="$(dns_guard_state "$manage_dnsmasq")"
+        if [ -f "$DNS_GUARD_STATE_FILE" ]; then
+            read -r recorded_state recorded_since < "$DNS_GUARD_STATE_FILE"
+            case "$recorded_since" in
+            "" | *[!0-9]*) ;;
+            *) [ "$recorded_state" = "$state" ] && since="$recorded_since" ;;
+            esac
+        fi
+    fi
+
+    echo "{\"running\":$running,\"state\":\"$state\",\"since\":$since,\"manage_dnsmasq\":$manage_dnsmasq}"
+}
+
 check_dns_available() {
     local dns_type dns_server bootstrap_dns_server
     config_get dns_type "settings" "dns_type"
@@ -3647,6 +3694,7 @@ Available commands:
     show_system_info        Show system information
     get_status              Get okop service status
     get_sing_box_status     Get sing-box service status
+    get_dns_guard_status    Get DNS guard status in JSON format
     get_system_info         Get system information in JSON format
     check_dns_available     Check DNS server availability
     global_check            Run global system check
@@ -3717,6 +3765,9 @@ show_system_info)
     ;;
 get_status)
     get_status
+    ;;
+get_dns_guard_status)
+    get_dns_guard_status
     ;;
 get_sing_box_status)
     get_sing_box_status

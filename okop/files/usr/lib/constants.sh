@@ -36,6 +36,8 @@ DNS_GUARD_MIN_SUCCESSES=3
 DNS_PROBE_DOMAIN="openwrt.org"
 DNS_GUARD_MAX_UNRESOLVED=6
 DNS_GUARD_PID_FILE="/var/run/okop_dns_guard.pid"
+# What the guard provides and since when: "<state> <unix time>", rewritten when the state changes
+DNS_GUARD_STATE_FILE="/var/run/okop_dns_guard.state"
 # Fallback connection groups: the first member is used until it fails FALLBACK_MAX_FAILURES checks in a
 # row, a higher priority member is taken back after FALLBACK_MIN_SUCCESSES successful checks in a row
 FALLBACK_GUARD_PID_FILE="/var/run/okop_fallback_guard.pid"
