@@ -32,7 +32,7 @@ Target: OpenWrt 24.10 (opkg, `.ipk`) and 25.12 (apk, `.apk`), sing-box ≥ 1.12.
 ## LuCI app and frontend
 
 - Do not edit `main.js` by hand. Change `fe-app-okop/src` and rebuild: `yarn build` in `fe-app-okop` (Node 22, `corepack enable`). CI for the frontend (`yarn ci`: format, lint, tests, build) runs on pull requests touching `fe-app-okop/`.
-- Other views (`okop.js`, `section.js`, `settings.js`, ...) are plain LuCI JavaScript loaded as is. Sections are a `form.GridSection`: options are `modalonly`, the table shows summary columns. Row order is significant: the first proxy/VPN section whose lists match wins.
+- Other views (`okop.js`, `section.js`, `settings.js`, ...) are plain LuCI JavaScript loaded as is. Sections and connections are `form.GridSection`s: options are `modalonly`, the table shows summary columns. Section row order is significant: the first section routed through a connection whose lists match wins.
 - New UI strings must be wrapped in `_()` and translated:
   1. `yarn locales:actualize` in `fe-app-okop` regenerates `locales/calls.json`, the `.pot` and `.ru.po` and copies them to `luci-app-okop/po/`. It needs `git config user.name/email`.
   2. Fill the new `msgstr` entries in Russian in both `fe-app-okop/locales/okop.ru.po` and `luci-app-okop/po/ru/okop.po` (they must stay identical).
