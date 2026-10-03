@@ -13,11 +13,39 @@
 // Sections content
 "require view.okop.section as section";
 
+// Connections content
+"require view.okop.outbound as outbound";
+
 // Dashboard content
 "require view.okop.dashboard as dashboard";
 
 // Diagnostic content
 "require view.okop.diagnostic as diagnostic";
+
+// LuCI only checks the name syntax. An existing name would merge the new section into that one
+// ("settings" would even turn the global settings into a section): sections and connections share one
+// namespace in /etc/config/okop. The names below give sing-box tags that collide with okop's own
+// (direct-out, service-mixed-in).
+const reservedNames = ["settings", "direct", "service", "diagnostic", "dashboard"];
+
+function refuseTakenNames(gridSection) {
+  const add = gridSection.handleAdd;
+  gridSection.handleAdd = function (ev, name) {
+    let message = null;
+    if (reservedNames.includes(name)) {
+      message = _("The name %s is reserved, choose another one").format(name);
+    } else if (uci.get("okop", name)) {
+      message = _("The name %s is already taken").format(name);
+    }
+
+    if (message) {
+      ui.addNotification(null, E("p", {}, [message]), "warning");
+      return Promise.resolve();
+    }
+
+    return add.apply(this, arguments);
+  };
+}
 
 const EntryPoint = {
   async render() {
@@ -33,7 +61,7 @@ const EntryPoint = {
 
     // Sections tab
     // Sections are listed in a table and edited in a modal, like network interfaces.
-    // The order matters: the first proxy/VPN section whose lists match wins, so rows can be dragged.
+    // The order matters: the first section whose lists match wins, so rows can be dragged.
     const sectionsSection = okopMap.section(
       form.GridSection,
       "section",
@@ -46,35 +74,47 @@ const EntryPoint = {
     sectionsSection.modaltitle = (section_id) =>
       _("Section") + ": " + section_id;
 
-    // LuCI only checks the name syntax. An existing name would merge the new section into that one
-    // ("settings" would even turn the global settings into a section), and the names below give
-    // sing-box tags that collide with okop's own (direct-out, service-mixed-in).
-    const reservedSectionNames = [
-      "settings",
-      "direct",
-      "service",
-      "diagnostic",
-      "dashboard",
-    ];
-    const addSection = sectionsSection.handleAdd;
-    sectionsSection.handleAdd = function (ev, name) {
-      let message = null;
-      if (reservedSectionNames.includes(name)) {
-        message = _("The name %s is reserved, choose another one").format(name);
-      } else if (uci.get("okop", name)) {
-        message = _("A section named %s already exists").format(name);
-      }
-
-      if (message) {
-        ui.addNotification(null, E("p", {}, [message]), "warning");
-        return Promise.resolve();
-      }
-
-      return addSection.apply(this, arguments);
-    };
+    refuseTakenNames(sectionsSection);
 
     // Render section content
     section.createSectionContent(sectionsSection);
+
+    // Connections tab: what sections send their traffic through
+    const outboundsSection = okopMap.section(
+      form.GridSection,
+      "outbound",
+      _("Outbound connections"),
+    );
+    outboundsSection.anonymous = false;
+    outboundsSection.addremove = true;
+    outboundsSection.sortable = true;
+    outboundsSection.nodescriptions = true;
+    outboundsSection.modaltitle = (section_id) =>
+      _("Connection") + ": " + section_id;
+    refuseTakenNames(outboundsSection);
+
+    // A section or a group left with a reference to a removed connection would stop okop from starting
+    const removeOutbound = outboundsSection.handleRemove;
+    outboundsSection.handleRemove = function (section_id) {
+      const users = outbound.connectionUsers(section_id);
+      if (users.length) {
+        ui.addNotification(
+          null,
+          E("p", {}, [
+            _("The connection %s is used by: %s. Choose another connection there first.").format(
+              section_id,
+              users.join(", "),
+            ),
+          ]),
+          "warning",
+        );
+        return Promise.resolve();
+      }
+
+      return removeOutbound.apply(this, arguments);
+    };
+
+    outbound.createOutboundContent(outboundsSection);
 
     // Settings tab
     const settingsSection = okopMap.section(

@@ -1,6 +1,6 @@
 import { getConfigSections } from './getConfigSections';
 import { Okop } from '../../types';
-import { getProxyUrlName, splitProxyString } from '../../../helpers';
+import { getProxyUrlName } from '../../../helpers/getProxyUrlName';
 import { OkopShellMethods } from '../shell';
 
 interface IGetDashboardSectionsResponse {
@@ -8,12 +8,38 @@ interface IGetDashboardSectionsResponse {
   data: Okop.OutboundGroup[];
 }
 
+type ClashProxy = {
+  code: string;
+  value: {
+    name?: string;
+    type?: string;
+    now?: string;
+    all?: string[];
+    history?: { delay?: number }[];
+  };
+};
+
+const GROUP_TYPES: Okop.ConnectionType[] = ['fallback', 'urltest', 'selector'];
+
+function toArray(value?: string | string[]): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return Array.isArray(value) ? value : [value];
+}
+
+// The tag okop gives a connection in the sing-box configuration
+function tagOf(name: string) {
+  return `${name}-out`;
+}
+
 // The JSON may come from the uci CLI without validation, and a tag such as "50%" is not valid URI
-// encoding. Either threw and left the whole dashboard without sections.
-function getOutboundJsonTag(outboundJson: string): string | undefined {
+// encoding. Either threw and left the whole dashboard without connections.
+function getOutboundJsonTag(outboundJson?: string): string | undefined {
   let tag: unknown;
   try {
-    tag = JSON.parse(outboundJson)?.tag;
+    tag = JSON.parse(outboundJson ?? '')?.tag;
   } catch {
     return undefined;
   }
@@ -29,6 +55,39 @@ function getOutboundJsonTag(outboundJson: string): string | undefined {
   }
 }
 
+// What a connection is called on its card: the name of the link, the interface or the JSON tag
+function describe(connection?: Okop.ConfigSection): string {
+  if (!connection) {
+    return '';
+  }
+
+  switch (connection.type) {
+    case 'url':
+      return getProxyUrlName(connection.url ?? '');
+    case 'json':
+      return getOutboundJsonTag(connection.json) ?? '';
+    case 'interface':
+      return connection.interface ?? '';
+    default:
+      return '';
+  }
+}
+
+function toOutbound(
+  code: string,
+  displayName: string,
+  proxy: ClashProxy | undefined,
+  selected: boolean,
+): Okop.Outbound {
+  return {
+    code,
+    displayName,
+    latency: proxy?.value?.history?.[0]?.delay || 0,
+    type: proxy?.value?.type || '',
+    selected,
+  };
+}
+
 export async function getDashboardSections(): Promise<IGetDashboardSectionsResponse> {
   const configSections = await getConfigSections();
   const clashProxies = await OkopShellMethods.getClashApiProxies();
@@ -40,170 +99,91 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
     };
   }
 
-  const proxies = Object.entries(clashProxies.data.proxies).map(
-    ([key, value]) => ({
-      code: key,
-      value,
-    }),
+  const proxies: ClashProxy[] = Object.entries(clashProxies.data.proxies).map(
+    ([key, value]) => ({ code: key, value: value as ClashProxy['value'] }),
+  );
+  const findProxy = (code: string) =>
+    proxies.find((proxy) => proxy.code === code);
+
+  const connections = configSections.filter(
+    (section) => section['.type'] === 'outbound',
+  );
+  const findConnection = (name: string) =>
+    connections.find((connection) => connection['.name'] === name);
+
+  // A connection that is only a member of groups is shown inside them, not on a card of its own
+  const usedBySection = new Set(
+    configSections
+      .filter(
+        (section) =>
+          section['.type'] === 'section' &&
+          section.connection_type === 'outbound' &&
+          section.outbound,
+      )
+      .map((section) => section.outbound as string),
+  );
+  const members = new Set(
+    connections.flatMap((connection) => toArray(connection.members)),
   );
 
-  const data = configSections
+  const data = connections
     .filter(
-      (section) =>
-        section.connection_type !== 'block' &&
-        section.connection_type !== 'exclusion' &&
-        section['.type'] !== 'settings',
+      (connection) =>
+        usedBySection.has(connection['.name']) ||
+        !members.has(connection['.name']),
     )
-    .map((section) => {
-      if (section.connection_type === 'proxy') {
-        if (section.proxy_config_type === 'url') {
-          const outbound = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
+    .map((connection): Okop.OutboundGroup => {
+      const name = connection['.name'];
+      const code = tagOf(name);
+      const proxy = findProxy(code);
 
-          const activeConfigs = splitProxyString(section.proxy_string);
-
-          const proxyDisplayName =
-            getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || '';
-
-          return {
-            withTagSelect: false,
-            code: outbound?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds: [
-              {
-                code: outbound?.code || section['.name'],
-                displayName: proxyDisplayName,
-                latency: outbound?.value?.history?.[0]?.delay || 0,
-                type: outbound?.value?.type || '',
-                selected: true,
-              },
-            ],
-          };
-        }
-
-        if (section.proxy_config_type === 'outbound') {
-          const outbound = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
-
-          const proxyDisplayName =
-            getOutboundJsonTag(section.outbound_json) ||
-            outbound?.value?.name ||
-            '';
-
-          return {
-            withTagSelect: false,
-            code: outbound?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds: [
-              {
-                code: outbound?.code || section['.name'],
-                displayName: proxyDisplayName,
-                latency: outbound?.value?.history?.[0]?.delay || 0,
-                type: outbound?.value?.type || '',
-                selected: true,
-              },
-            ],
-          };
-        }
-
-        if (section.proxy_config_type === 'selector') {
-          const selector = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
-
-          const links = section.selector_proxy_links ?? [];
-
-          const outbounds = links
-            .map((link, index) => ({
-              link,
-              outbound: proxies.find(
-                (item) => item.code === `${section['.name']}-${index + 1}-out`,
-              ),
-            }))
-            .map((item) => ({
-              code: item?.outbound?.code || '',
-              displayName:
-                getProxyUrlName(item.link) || item?.outbound?.value?.name || '',
-              latency: item?.outbound?.value?.history?.[0]?.delay || 0,
-              type: item?.outbound?.value?.type || '',
-              selected: selector?.value?.now === item?.outbound?.code,
-            }));
-
-          return {
-            withTagSelect: true,
-            code: selector?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds,
-          };
-        }
-
-        if (section.proxy_config_type === 'urltest') {
-          const selector = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-out`,
-          );
-          const outbound = proxies.find(
-            (proxy) => proxy.code === `${section['.name']}-urltest-out`,
-          );
-
-          const outbounds = (outbound?.value?.all ?? [])
-            .map((code) => proxies.find((item) => item.code === code))
-            .map((item, index) => ({
-              code: item?.code || '',
-              displayName:
-                getProxyUrlName(section.urltest_proxy_links?.[index]) ||
-                item?.value?.name ||
-                '',
-              latency: item?.value?.history?.[0]?.delay || 0,
-              type: item?.value?.type || '',
-              selected: selector?.value?.now === item?.code,
-            }));
-
-          return {
-            withTagSelect: true,
-            code: selector?.code || section['.name'],
-            displayName: section['.name'],
-            outbounds: [
-              {
-                code: outbound?.code || '',
-                displayName: _('Fastest'),
-                latency: outbound?.value?.history?.[0]?.delay || 0,
-                type: outbound?.value?.type || '',
-                selected: selector?.value?.now === outbound?.code,
-              },
-              ...outbounds,
-            ],
-          };
-        }
-      }
-
-      if (section.connection_type === 'vpn') {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section['.name']}-out`,
-        );
-
+      if (!GROUP_TYPES.includes(connection.type as Okop.ConnectionType)) {
         return {
           withTagSelect: false,
-          code: outbound?.code || section['.name'],
-          displayName: section['.name'],
+          code,
+          displayName: name,
           outbounds: [
-            {
-              code: outbound?.code || section['.name'],
-              displayName: section.interface || outbound?.value?.name || '',
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || '',
-              selected: true,
-            },
+            toOutbound(
+              code,
+              describe(connection) || proxy?.value?.name || name,
+              proxy,
+              true,
+            ),
           ],
         };
       }
 
+      const memberOutbounds = toArray(connection.members).map((member) => {
+        const description = describe(findConnection(member));
+        return toOutbound(
+          tagOf(member),
+          description && description !== member
+            ? `${member} · ${description}`
+            : member,
+          findProxy(tagOf(member)),
+          proxy?.value?.now === tagOf(member),
+        );
+      });
+
+      if (connection.type === 'urltest') {
+        // The group is a selector over the members and the URLTest that picks the fastest one
+        const urltestCode = tagOf(`${name}-urltest`);
+        memberOutbounds.unshift(
+          toOutbound(
+            urltestCode,
+            _('Fastest'),
+            findProxy(urltestCode),
+            proxy?.value?.now === urltestCode,
+          ),
+        );
+      }
+
       return {
-        withTagSelect: false,
-        code: section['.name'],
-        displayName: section['.name'],
-        outbounds: [],
+        withTagSelect: true,
+        selectable: connection.type !== 'fallback',
+        code,
+        displayName: name,
+        outbounds: memberOutbounds,
       };
     });
 

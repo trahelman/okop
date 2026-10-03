@@ -271,47 +271,35 @@ function createSettingsContent(section) {
   o = section.option(
     form.Flag,
     "download_lists_via_proxy",
-    _("Download Lists via Proxy/VPN"),
-    _("Downloading all lists via specific Proxy/VPN"),
+    _("Download Lists via a Connection"),
+    _("Download all lists through one of the connections instead of directly"),
   );
   o.default = "0";
   o.rmempty = false;
 
   o = section.option(
     form.ListValue,
-    "download_lists_via_proxy_section",
-    _("Download Lists via specific proxy section"),
-    _("Downloading all lists via specific Proxy/VPN"),
+    "download_lists_via_outbound",
+    _("Connection for Downloading Lists"),
+    _("Lists are downloaded through this connection"),
   );
-
   o.rmempty = false;
   o.depends("download_lists_via_proxy", "1");
-  o.cfgvalue = function (section_id) {
-    return uci.get("okop", section_id, "download_lists_via_proxy_section");
-  };
-  o.load = function () {
-    const sections = this.map?.data?.state?.values?.okop ?? {};
-
+  o.load = function (section_id) {
     this.keylist = [];
     this.vallist = [];
-
-    for (const secName in sections) {
-      const sec = sections[secName];
-      if (sec[".type"] === "section" && sec['connection_type'] !== 'block' && sec['connection_type'] !== 'exclusion') {
-        this.keylist.push(secName);
-        this.vallist.push(secName);
-      }
-    }
-
-    return Promise.resolve();
+    uci.sections("okop", "outbound").forEach((connection) =>
+      this.value(connection[".name"], connection[".name"]),
+    );
+    return form.ListValue.prototype.load.apply(this, arguments);
   };
 
   o = section.option(
     form.Flag,
     "download_lists_direct_fallback",
-    _("Download Lists Directly if Proxy/VPN Fails"),
+    _("Download Lists Directly if the Connection Fails"),
     _(
-      "If lists cannot be downloaded via the selected Proxy/VPN, download them without it",
+      "If lists cannot be downloaded through the selected connection, download them without it",
     ),
   );
   o.default = "0";

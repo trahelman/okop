@@ -29,8 +29,11 @@ msgstr "✘ Отключено"
 msgid "✘ Stopped"
 msgstr "✘ Остановлен"
 
-msgid "A section named %s already exists"
-msgstr "Секция с именем %s уже существует"
+msgid "A group cannot contain itself"
+msgstr "Группа не может содержать саму себя"
+
+msgid "A group combines other connections: fallback uses the first one that responds, fastest picks by latency, manual choice is switched on the dashboard"
+msgstr "Группа объединяет другие подключения: резерв использует первое отвечающее, «самое быстрое» выбирает по задержке, ручной выбор переключается на дашборде"
 
 msgid "Active Connections"
 msgstr "Активные соединения"
@@ -43,6 +46,9 @@ msgstr "Дополнительно"
 
 msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr "Обеспечивает доступ к YACD из WAN. Убедитесь, что в брандмауэре открыт соответствующий порт."
+
+msgid "An HTTP and SOCKS proxy on the router that sends everything it receives through this connection"
+msgstr "HTTP- и SOCKS-прокси на роутере, который отправляет всё полученное через это подключение"
 
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr "Применимо для SOCKS и Shadowsocks прокси"
@@ -83,6 +89,12 @@ msgstr "Путь к файлу кэша не может быть пустым"
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
 
+msgid "Check Interval"
+msgstr "Интервал проверки"
+
+msgid "Check URL"
+msgstr "URL для проверки"
+
 msgid "Checking, please wait"
 msgstr "Проверяем, пожалуйста подождите"
 
@@ -110,17 +122,26 @@ msgstr "Путь к файлу конфигурации"
 msgid "Configuration for Okop service"
 msgstr "Настройки сервиса Okop"
 
-msgid "Configuration Type"
-msgstr "Тип конфигурации"
-
 msgid "Connection"
 msgstr "Подключение"
+
+msgid "connection %s does not exist"
+msgstr "подключения %s не существует"
+
+msgid "Connection %s does not exist"
+msgstr "Подключения %s не существует"
+
+msgid "Connection for Downloading Lists"
+msgstr "Подключение для скачивания списков"
 
 msgid "Connection Type"
 msgstr "Тип подключения"
 
-msgid "Connection URL"
-msgstr "URL подключения"
+msgid "Connections are set up on the Outbound connections tab"
+msgstr "Подключения настраиваются на вкладке «Подключения»"
+
+msgid "Connections of the group. For a fallback group the order is the priority: the first one that responds is used"
+msgstr "Подключения группы. В группе-резерве порядок — это приоритет: используется первое отвечающее"
 
 msgid "Copy"
 msgstr "Копировать"
@@ -185,9 +206,6 @@ msgstr "Не паникуйте, всё можно исправить, прос�
 msgid "Domain Resolver"
 msgstr "Резолвер доменов"
 
-msgid "domain resolver: %s"
-msgstr "резолвер доменов: %s"
-
 msgid "domains: %d"
 msgstr "доменов: %d"
 
@@ -200,26 +218,20 @@ msgstr "Входящий"
 msgid "Download"
 msgstr "Скачать"
 
-msgid "Download Lists Directly if Proxy/VPN Fails"
-msgstr "Скачивать списки напрямую, если Proxy/VPN не работает"
+msgid "Download all lists through one of the connections instead of directly"
+msgstr "Скачивать все списки через одно из подключений, а не напрямую"
 
-msgid "Download Lists via Proxy/VPN"
-msgstr "Скачивать списки через Proxy/VPN"
+msgid "Download Lists Directly if the Connection Fails"
+msgstr "Скачивать списки напрямую, если подключение не работает"
 
-msgid "Download Lists via specific proxy section"
-msgstr "Скачивать списки через выбранную секцию"
-
-msgid "Downloading all lists via specific Proxy/VPN"
-msgstr "Загрузка всех списков через указанный прокси/VPN"
+msgid "Download Lists via a Connection"
+msgstr "Скачивать списки через подключение"
 
 msgid "Dynamic List"
 msgstr "Динамический список"
 
 msgid "Enable autostart"
 msgstr "Включить автостарт"
-
-msgid "Enable built-in DNS resolver for domains handled by this section"
-msgstr "Включить встроенный DNS-резолвер для доменов, обрабатываемых в этом разделе"
 
 msgid "Enable DNS resolve to get real IP when routing"
 msgstr "Разрешать домены в реальные IP-адреса перед маршрутизацией в outbound"
@@ -230,14 +242,14 @@ msgstr "Включить смешанный прокси"
 msgid "Enable Output Network Interface"
 msgstr "Включить выходной сетевой интерфейс"
 
-msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
-msgstr "Включить смешанный прокси-сервер, разрешив этому разделу маршрутизировать трафик как через HTTP, так и через SOCKS-прокси."
-
 msgid "Enable YACD"
 msgstr "Включить YACD"
 
 msgid "Enable YACD WAN Access"
 msgstr "Включить доступ YACD WAN"
+
+msgid "Enter a proxy link"
+msgstr "Укажите ссылку на прокси"
 
 msgid "Enter complete outbound configuration in JSON format"
 msgstr "Введите полную конфигурацию исходящего соединения в формате JSON"
@@ -254,17 +266,8 @@ msgstr "Введите подсети в нотации CIDR (например, 
 msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //"
 msgstr "Введите подсети в нотации CIDR или отдельные IP-адреса, разделяя их запятыми, пробелами или переносами строк. Вы можете добавлять комментарии, используя //"
 
-msgid "Every 1 minute"
-msgstr "Каждую минуту"
-
-msgid "Every 3 minutes"
-msgstr "Каждые 3 минуты"
-
-msgid "Every 30 seconds"
-msgstr "Каждые 30 секунд"
-
-msgid "Every 5 minutes"
-msgstr "Каждые 5 минут"
+msgid "Enter the outbound configuration"
+msgstr "Укажите конфигурацию outbound"
 
 msgid "Exclude NTP"
 msgstr "Исключить NTP"
@@ -281,8 +284,14 @@ msgstr "Не удалось скопировать!"
 msgid "Failed to execute!"
 msgstr "Не удалось выполнить!"
 
+msgid "Fallback group"
+msgstr "Группа: резерв"
+
 msgid "Fastest"
 msgstr "Самый быстрый"
+
+msgid "Fastest of a group"
+msgstr "Группа: самое быстрое"
 
 msgid "Fully Routed IPs"
 msgstr "Полностью маршрутизированные IP-адреса"
@@ -296,11 +305,20 @@ msgstr "Получить глобальную проверку"
 msgid "Global check"
 msgstr "Глобальная проверка"
 
+msgid "group %s"
+msgstr "группа %s"
+
+msgid "Groups contain each other: %s"
+msgstr "Группы содержат друг друга: %s"
+
+msgid "How often the members are checked"
+msgstr "Как часто проверять участников группы"
+
 msgid "HTTP error"
 msgstr "Ошибка HTTP"
 
-msgid "If lists cannot be downloaded via the selected Proxy/VPN, download them without it"
-msgstr "Если списки не удаётся скачать через выбранный Proxy/VPN, скачивать их без него"
+msgid "If lists cannot be downloaded through the selected connection, download them without it"
+msgstr "Если списки не скачиваются через выбранное подключение, скачать их без него"
 
 msgid "Interface Monitoring"
 msgstr "Мониторинг интерфейса"
@@ -455,14 +473,17 @@ msgstr "Обнаружены проблемы"
 msgid "Latest"
 msgstr "Последняя"
 
-msgid "links: %d"
-msgstr "ссылок: %d"
+msgid "list downloads"
+msgstr "скачивание списков"
 
 msgid "List Update Frequency"
 msgstr "Частота обновления списков"
 
 msgid "Lists"
 msgstr "Списки"
+
+msgid "Lists are downloaded through this connection"
+msgstr "Через это подключение скачиваются списки"
 
 msgid "Lists Storage Path"
 msgstr "Путь хранения списков"
@@ -482,6 +503,12 @@ msgstr "Уровень логов"
 msgid "Main DNS"
 msgstr "Основной DNS"
 
+msgid "Manual choice of a group"
+msgstr "Группа: ручной выбор"
+
+msgid "Members"
+msgstr "Участники"
+
 msgid "Memory Usage"
 msgstr "Использование памяти"
 
@@ -494,11 +521,14 @@ msgstr "Порт смешанного прокси"
 msgid "Monitored Interfaces"
 msgstr "Наблюдаемые интерфейсы"
 
-msgid "Must be a number in the range of 50 - 1000"
-msgstr "Должно быть числом от 50 до 1000"
+msgid "Network interface"
+msgstr "Сетевой интерфейс"
 
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
+
+msgid "no connection selected"
+msgstr "подключение не выбрано"
 
 msgid "no interface"
 msgstr "интерфейс не выбран"
@@ -521,6 +551,9 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "not used"
+msgstr "не используется"
+
 msgid "Okop"
 msgstr "Okop"
 
@@ -533,11 +566,11 @@ msgstr "Okop не будет изменять вашу конфигурацию 
 msgid "Operation timed out"
 msgstr "Время ожидания истекло"
 
-msgid "Outbound Config"
-msgstr "Конфигурация Outbound"
-
 msgid "Outbound Configuration"
 msgstr "Конфигурация исходящего соединения"
+
+msgid "Outbound connections"
+msgstr "Подключения"
 
 msgid "Outbound must be a JSON object with a \"type\" field"
 msgstr "Outbound должен быть JSON-объектом с полем \"type\""
@@ -563,14 +596,17 @@ msgstr "Путь должен заканчиваться на cache.db"
 msgid "Pending"
 msgstr "Ожидает запуска"
 
-msgid "Port %d is already used by another section"
-msgstr "Порт %d уже используется другой секцией"
+msgid "Port %d is already used by another connection"
+msgstr "Порт %d уже используется другим подключением"
 
 msgid "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)"
 msgstr "Порт %d занят самим роутером (SSH, DNS, веб-интерфейс или Clash API)"
 
 msgid "Proxy Configuration URL"
 msgstr "URL конфигурации прокси"
+
+msgid "Proxy link"
+msgstr "Ссылка на прокси"
 
 msgid "Proxy traffic is not routed via FakeIP"
 msgstr "Прокси-трафик не маршрутизируется через FakeIP"
@@ -589,6 +625,9 @@ msgstr "удалённых списков: %d"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Resolve domains sent through this connection with a DNS server reached through the connection itself"
+msgstr "Резолвить домены, которые идут через это подключение, DNS-сервером, доступным через само подключение"
 
 msgid "Resolve real IP for routing"
 msgstr "Разрешение реальных IP-адресов"
@@ -635,23 +674,20 @@ msgstr "Секретный ключ для аутентификации удал
 msgid "Section"
 msgstr "Секция"
 
+msgid "section %s"
+msgstr "секция %s"
+
 msgid "Sections"
 msgstr "Секции"
 
 msgid "Select a predefined list for routing"
 msgstr "Выберите предопределенный список для маршрутизации"
 
-msgid "Select between VPN and Proxy connection methods for traffic routing"
-msgstr "Выберите между VPN и Proxy методами для маршрутизации трафика"
-
 msgid "Select DNS protocol to use"
 msgstr "Выберите протокол DNS"
 
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr "Выберите частоту автоматического обновления списков доменов или подсетей."
-
-msgid "Select how to configure the proxy"
-msgstr "Выберите способ настройки прокси"
 
 msgid "Select network interface for VPN connection"
 msgstr "Выберите сетевой интерфейс для VPN подключения"
@@ -686,11 +722,8 @@ msgstr "Выберите сетевой интерфейс, на который 
 msgid "Select the WAN interfaces to be monitored"
 msgstr "Выберите WAN интерфейсы для мониторинга"
 
-msgid "Selector"
-msgstr "Selector"
-
-msgid "Selector Proxy Links"
-msgstr "Ссылки прокси для Selector"
+msgid "Send the traffic of the lists through a connection, block it, or let it go directly"
+msgstr "Отправлять трафик списков через подключение, блокировать его или пропускать напрямую"
 
 msgid "Services info"
 msgstr "Информация о сервисах"
@@ -709,6 +742,9 @@ msgstr "Автостарт sing-box отключен"
 
 msgid "Sing-box installed"
 msgstr "Sing-box установлен"
+
+msgid "sing-box JSON"
+msgstr "JSON для sing-box"
 
 msgid "Sing-box listening ports"
 msgstr "Sing-box слушает порты"
@@ -740,8 +776,8 @@ msgstr "Укажите URL-адреса для загрузки и исполь�
 msgid "Specify the path to the list file located on the router filesystem"
 msgstr "Укажите путь к файлу списка, расположенному в файловой системе маршрутизатора."
 
-msgid "Specify the port number on which the mixed proxy will run for this section. Make sure the selected port is not used by another service"
-msgstr "Укажите порт, на котором будет работать смешанный прокси этой секции. Убедитесь, что порт не занят другой службой"
+msgid "Specify the port number on which the mixed proxy will run for this connection. Make sure the selected port is not used by another service"
+msgstr "Укажите порт, на котором будет работать смешанный прокси этого подключения. Убедитесь, что порт не занят другой службой"
 
 msgid "Start okop"
 msgstr "Запустить Okop"
@@ -770,20 +806,26 @@ msgstr "Тестирование задержки"
 msgid "Text List"
 msgstr "Текстовый список"
 
+msgid "The connection %s is used by: %s. Choose another connection there first."
+msgstr "Подключение %s используется: %s. Сначала выберите там другое подключение."
+
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
-msgid "The interval between connectivity tests"
-msgstr "Интервал между тестами подключения"
-
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
+
+msgid "The name %s is already taken"
+msgstr "Имя %s уже занято"
 
 msgid "The name %s is reserved, choose another one"
 msgstr "Имя %s зарезервировано, выберите другое"
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
+
+msgid "Through a connection"
+msgstr "Через подключение"
 
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr "Время в секундах для кэширования DNS записей (по умолчанию: 60)"
@@ -796,6 +838,9 @@ msgstr "Всего трафика"
 
 msgid "Troubleshooting"
 msgstr "Устранение неполадок"
+
+msgid "Type"
+msgstr "Тип"
 
 msgid "UDP (Unprotected DNS)"
 msgstr "UDP (Незащищённый DNS)"
@@ -818,20 +863,11 @@ msgstr "URL должен начинаться с vless://, ss://, trojan://, soc
 msgid "URL must use one of the following protocols:"
 msgstr "URL должен использовать один из следующих протоколов:"
 
-msgid "URLTest"
-msgstr "URLTest"
-
-msgid "URLTest Check Interval"
-msgstr "Интервал проверки URLTest"
-
-msgid "URLTest Proxy Links"
-msgstr "Ссылки прокси для URLTest"
-
-msgid "URLTest Testing URL"
-msgstr "URLTest ссылка для проверки"
-
 msgid "URLTest Tolerance"
 msgstr "URLTest допустимое отклонение"
+
+msgid "Used by"
+msgstr "Где используется"
 
 msgid "User Domain List Type"
 msgstr "Тип пользовательского списка доменов"

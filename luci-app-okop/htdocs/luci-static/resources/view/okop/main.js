@@ -589,6 +589,19 @@ async function getConfigSections() {
   return uci.load("okop").then(() => uci.sections("okop"));
 }
 
+// src/helpers/getProxyUrlName.ts
+function getProxyUrlName(url) {
+  try {
+    const [_link, hash] = url.split("#");
+    if (!hash) {
+      return "";
+    }
+    return decodeURIComponent(hash);
+  } catch {
+    return "";
+  }
+}
+
 // src/okop/methods/shell/callBaseMethod.ts
 async function callBaseMethod(method, args = [], command = "/usr/bin/okop") {
   const response = await executeShellCommand({
@@ -714,10 +727,20 @@ var OkopShellMethods = {
 };
 
 // src/okop/methods/custom/getDashboardSections.ts
+var GROUP_TYPES = ["fallback", "urltest", "selector"];
+function toArray(value) {
+  if (!value) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value];
+}
+function tagOf(name) {
+  return `${name}-out`;
+}
 function getOutboundJsonTag(outboundJson) {
   let tag;
   try {
-    tag = JSON.parse(outboundJson)?.tag;
+    tag = JSON.parse(outboundJson ?? "")?.tag;
   } catch {
     return void 0;
   }
@@ -730,6 +753,30 @@ function getOutboundJsonTag(outboundJson) {
     return tag;
   }
 }
+function describe(connection) {
+  if (!connection) {
+    return "";
+  }
+  switch (connection.type) {
+    case "url":
+      return getProxyUrlName(connection.url ?? "");
+    case "json":
+      return getOutboundJsonTag(connection.json) ?? "";
+    case "interface":
+      return connection.interface ?? "";
+    default:
+      return "";
+  }
+}
+function toOutbound(code, displayName, proxy, selected) {
+  return {
+    code,
+    displayName,
+    latency: proxy?.value?.history?.[0]?.delay || 0,
+    type: proxy?.value?.type || "",
+    selected
+  };
+}
 async function getDashboardSections() {
   const configSections = await getConfigSections();
   const clashProxies = await OkopShellMethods.getClashApiProxies();
@@ -740,135 +787,68 @@ async function getDashboardSections() {
     };
   }
   const proxies = Object.entries(clashProxies.data.proxies).map(
-    ([key, value]) => ({
-      code: key,
-      value
-    })
+    ([key, value]) => ({ code: key, value })
   );
-  const data = configSections.filter(
-    (section) => section.connection_type !== "block" && section.connection_type !== "exclusion" && section[".type"] !== "settings"
-  ).map((section) => {
-    if (section.connection_type === "proxy") {
-      if (section.proxy_config_type === "url") {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const activeConfigs = splitProxyString(section.proxy_string);
-        const proxyDisplayName = getProxyUrlName(activeConfigs?.[0]) || outbound?.value?.name || "";
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || section[".name"],
-              displayName: proxyDisplayName,
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: true
-            }
-          ]
-        };
-      }
-      if (section.proxy_config_type === "outbound") {
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const proxyDisplayName = getOutboundJsonTag(section.outbound_json) || outbound?.value?.name || "";
-        return {
-          withTagSelect: false,
-          code: outbound?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || section[".name"],
-              displayName: proxyDisplayName,
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: true
-            }
-          ]
-        };
-      }
-      if (section.proxy_config_type === "selector") {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const links = section.selector_proxy_links ?? [];
-        const outbounds = links.map((link, index) => ({
-          link,
-          outbound: proxies.find(
-            (item) => item.code === `${section[".name"]}-${index + 1}-out`
-          )
-        })).map((item) => ({
-          code: item?.outbound?.code || "",
-          displayName: getProxyUrlName(item.link) || item?.outbound?.value?.name || "",
-          latency: item?.outbound?.value?.history?.[0]?.delay || 0,
-          type: item?.outbound?.value?.type || "",
-          selected: selector?.value?.now === item?.outbound?.code
-        }));
-        return {
-          withTagSelect: true,
-          code: selector?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds
-        };
-      }
-      if (section.proxy_config_type === "urltest") {
-        const selector = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-out`
-        );
-        const outbound = proxies.find(
-          (proxy) => proxy.code === `${section[".name"]}-urltest-out`
-        );
-        const outbounds = (outbound?.value?.all ?? []).map((code) => proxies.find((item) => item.code === code)).map((item, index) => ({
-          code: item?.code || "",
-          displayName: getProxyUrlName(section.urltest_proxy_links?.[index]) || item?.value?.name || "",
-          latency: item?.value?.history?.[0]?.delay || 0,
-          type: item?.value?.type || "",
-          selected: selector?.value?.now === item?.code
-        }));
-        return {
-          withTagSelect: true,
-          code: selector?.code || section[".name"],
-          displayName: section[".name"],
-          outbounds: [
-            {
-              code: outbound?.code || "",
-              displayName: _("Fastest"),
-              latency: outbound?.value?.history?.[0]?.delay || 0,
-              type: outbound?.value?.type || "",
-              selected: selector?.value?.now === outbound?.code
-            },
-            ...outbounds
-          ]
-        };
-      }
-    }
-    if (section.connection_type === "vpn") {
-      const outbound = proxies.find(
-        (proxy) => proxy.code === `${section[".name"]}-out`
-      );
+  const findProxy = (code) => proxies.find((proxy) => proxy.code === code);
+  const connections = configSections.filter(
+    (section) => section[".type"] === "outbound"
+  );
+  const findConnection = (name) => connections.find((connection) => connection[".name"] === name);
+  const usedBySection = new Set(
+    configSections.filter(
+      (section) => section[".type"] === "section" && section.connection_type === "outbound" && section.outbound
+    ).map((section) => section.outbound)
+  );
+  const members = new Set(
+    connections.flatMap((connection) => toArray(connection.members))
+  );
+  const data = connections.filter(
+    (connection) => usedBySection.has(connection[".name"]) || !members.has(connection[".name"])
+  ).map((connection) => {
+    const name = connection[".name"];
+    const code = tagOf(name);
+    const proxy = findProxy(code);
+    if (!GROUP_TYPES.includes(connection.type)) {
       return {
         withTagSelect: false,
-        code: outbound?.code || section[".name"],
-        displayName: section[".name"],
+        code,
+        displayName: name,
         outbounds: [
-          {
-            code: outbound?.code || section[".name"],
-            displayName: section.interface || outbound?.value?.name || "",
-            latency: outbound?.value?.history?.[0]?.delay || 0,
-            type: outbound?.value?.type || "",
-            selected: true
-          }
+          toOutbound(
+            code,
+            describe(connection) || proxy?.value?.name || name,
+            proxy,
+            true
+          )
         ]
       };
     }
+    const memberOutbounds = toArray(connection.members).map((member) => {
+      const description = describe(findConnection(member));
+      return toOutbound(
+        tagOf(member),
+        description && description !== member ? `${member} \xB7 ${description}` : member,
+        findProxy(tagOf(member)),
+        proxy?.value?.now === tagOf(member)
+      );
+    });
+    if (connection.type === "urltest") {
+      const urltestCode = tagOf(`${name}-urltest`);
+      memberOutbounds.unshift(
+        toOutbound(
+          urltestCode,
+          _("Fastest"),
+          findProxy(urltestCode),
+          proxy?.value?.now === urltestCode
+        )
+      );
+    }
     return {
-      withTagSelect: false,
-      code: section[".name"],
-      displayName: section[".name"],
-      outbounds: []
+      withTagSelect: true,
+      selectable: connection.type !== "fallback",
+      code,
+      displayName: name,
+      outbounds: memberOutbounds
     };
   });
   return {
@@ -1784,6 +1764,7 @@ function renderDefaultState({
       return onTestLatency(section.outbounds[0].code);
     }
   }
+  const selectable = section.selectable ?? section.withTagSelect;
   function renderOutbound(outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -1800,8 +1781,8 @@ function renderDefaultState({
     return E(
       "div",
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""} ${section.withTagSelect ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
-        click: () => section.withTagSelect && onChooseOutbound(section.code, outbound.code)
+        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""} ${selectable ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
+        click: () => selectable && onChooseOutbound(section.code, outbound.code)
       },
       [
         E("b", {}, [outbound.displayName]),
@@ -4840,19 +4821,6 @@ async function executeShellCommand({
 function maskIP(ip = "") {
   const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
   return ip.replace(ipv4Regex, (_match, _p1, _p2, _p3, p4) => `XX.XX.XX.${p4}`);
-}
-
-// src/helpers/getProxyUrlName.ts
-function getProxyUrlName(url) {
-  try {
-    const [_link, hash] = url.split("#");
-    if (!hash) {
-      return "";
-    }
-    return decodeURIComponent(hash);
-  } catch {
-    return "";
-  }
 }
 
 // src/helpers/onMount.ts

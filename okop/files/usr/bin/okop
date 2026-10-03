@@ -1273,7 +1273,7 @@ check_connection_cycle() {
 
     case " $path " in
     *" $outbound "*)
-        log "Connection groups contain each other: ${path# } $outbound. Aborted." "fatal"
+        log "Connection groups contain each other: $(echo "${path# } $outbound" | sed 's/ / → /g'). Aborted." "fatal"
         exit 1
         ;;
     esac
