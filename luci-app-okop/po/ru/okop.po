@@ -35,6 +35,9 @@ msgstr "Группа не может содержать саму себя"
 msgid "A group combines other connections: fallback uses the first one that responds, fastest picks by latency, manual choice is switched on the dashboard"
 msgstr "Группа объединяет другие подключения: резерв использует первое отвечающее, «самое быстрое» выбирает по задержке, ручной выбор переключается на дашборде"
 
+msgid "A name may contain only Latin letters, digits and _"
+msgstr "Имя может содержать только латинские буквы, цифры и _"
+
 msgid "Active Connections"
 msgstr "Активные соединения"
 
@@ -85,6 +88,9 @@ msgstr "Путь к файлу кэша"
 
 msgid "Cache file path cannot be empty"
 msgstr "Путь к файлу кэша не может быть пустым"
+
+msgid "Cancel"
+msgstr "Отмена"
 
 msgid "Cannot receive checks result"
 msgstr "Не удалось получить результаты проверки"
@@ -527,6 +533,9 @@ msgstr "Сетевой интерфейс"
 msgid "Network Interface"
 msgstr "Сетевой интерфейс"
 
+msgid "New name"
+msgstr "Новое имя"
+
 msgid "no connection selected"
 msgstr "подключение не выбрано"
 
@@ -625,6 +634,12 @@ msgstr "удалённых списков: %d"
 
 msgid "Remote Subnet Lists"
 msgstr "Внешние списки подсетей"
+
+msgid "Rename"
+msgstr "Переименовать"
+
+msgid "Rename %s"
+msgstr "Переименовать %s"
 
 msgid "Resolve domains sent through this connection with a DNS server reached through the connection itself"
 msgstr "Резолвить домены, которые идут через это подключение, DNS-сервером, доступным через само подключение"

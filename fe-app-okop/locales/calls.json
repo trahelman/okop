@@ -31,14 +31,21 @@
     "call": "A group cannot contain itself",
     "key": "A group cannot contain itself",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:355"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:159"
     ]
   },
   {
     "call": "A group combines other connections: fallback uses the first one that responds, fastest picks by latency, manual choice is switched on the dashboard",
     "key": "A group combines other connections: fallback uses the first one that responds, fastest picks by latency, manual choice is switched on the dashboard",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:199"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:218"
+    ]
+  },
+  {
+    "call": "A name may contain only Latin letters, digits and _",
+    "key": "A name may contain only Latin letters, digits and _",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:34"
     ]
   },
   {
@@ -73,14 +80,14 @@
     "call": "An HTTP and SOCKS proxy on the router that sends everything it receives through this connection",
     "key": "An HTTP and SOCKS proxy on the router that sends everything it receives through this connection",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:432"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:459"
     ]
   },
   {
     "call": "Applicable for SOCKS and Shadowsocks proxy",
     "key": "Applicable for SOCKS and Shadowsocks proxy",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:232"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:251"
     ]
   },
   {
@@ -162,6 +169,13 @@
     ]
   },
   {
+    "call": "Cancel",
+    "key": "Cancel",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:117"
+    ]
+  },
+  {
     "call": "Cannot receive checks result",
     "key": "Cannot receive checks result",
     "places": [
@@ -175,14 +189,14 @@
     "call": "Check Interval",
     "key": "Check Interval",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:373"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:398"
     ]
   },
   {
     "call": "Check URL",
     "key": "Check URL",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:392"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:419"
     ]
   },
   {
@@ -249,14 +263,14 @@
     "call": "Configuration for Okop service",
     "key": "Configuration for Okop service",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:57"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:192"
     ]
   },
   {
     "call": "Connection",
     "key": "Connection",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:93",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:230",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:104",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:114",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:136"
@@ -273,7 +287,7 @@
     "call": "Connection %s does not exist",
     "key": "Connection %s does not exist",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:358"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:164"
     ]
   },
   {
@@ -287,7 +301,7 @@
     "call": "Connection Type",
     "key": "Connection Type",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:198",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:217",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:122"
     ]
   },
@@ -302,7 +316,7 @@
     "call": "Connections of the group. For a fallback group the order is the priority: the first one that responds is used",
     "key": "Connections of the group. For a fallback group the order is the priority: the first one that responds is used",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:334"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:353"
     ]
   },
   {
@@ -323,7 +337,7 @@
     "call": "Dashboard",
     "key": "Dashboard",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:154"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:292"
     ]
   },
   {
@@ -351,7 +365,7 @@
     "call": "Diagnostics",
     "key": "Diagnostics",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:139"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:277"
     ]
   },
   {
@@ -401,7 +415,7 @@
     "call": "DNS over HTTPS (DoH)",
     "key": "DNS over HTTPS (DoH)",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:308",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:327",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:15"
     ]
   },
@@ -409,7 +423,7 @@
     "call": "DNS over TLS (DoT)",
     "key": "DNS over TLS (DoT)",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:309",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:328",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:16"
     ]
   },
@@ -417,7 +431,7 @@
     "call": "DNS Protocol Type",
     "key": "DNS Protocol Type",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:305",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:324",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:12"
     ]
   },
@@ -432,7 +446,7 @@
     "call": "DNS Server",
     "key": "DNS Server",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:317",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:336",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:24"
     ]
   },
@@ -454,7 +468,7 @@
     "call": "Domain Resolver",
     "key": "Domain Resolver",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:294"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:313"
     ]
   },
   {
@@ -533,7 +547,7 @@
     "call": "Enable Mixed Proxy",
     "key": "Enable Mixed Proxy",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:431"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:458"
     ]
   },
   {
@@ -561,14 +575,14 @@
     "call": "Enter a proxy link",
     "key": "Enter a proxy link",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:221"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:240"
     ]
   },
   {
     "call": "Enter complete outbound configuration in JSON format",
     "key": "Enter complete outbound configuration in JSON format",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:241"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:260"
     ]
   },
   {
@@ -603,7 +617,7 @@
     "call": "Enter the outbound configuration",
     "key": "Enter the outbound configuration",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:248"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:267"
     ]
   },
   {
@@ -658,7 +672,7 @@
     "call": "Fastest",
     "key": "Fastest",
     "places": [
-      "src/okop/methods/custom/getDashboardSections.ts:174",
+      "src/okop/methods/custom/getDashboardSections.ts:176",
       "src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:59"
     ]
   },
@@ -708,14 +722,14 @@
     "call": "Groups contain each other: %s",
     "key": "Groups contain each other: %s",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:364"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:169"
     ]
   },
   {
     "call": "How often the members are checked",
     "key": "How often the members are checked",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:374"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:399"
     ]
   },
   {
@@ -1173,7 +1187,7 @@
     "call": "Members",
     "key": "Members",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:333"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:352"
     ]
   },
   {
@@ -1187,14 +1201,14 @@
     "call": "mixed proxy on port %s",
     "key": "mixed proxy on port %s",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:178"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:197"
     ]
   },
   {
     "call": "Mixed Proxy Port",
     "key": "Mixed Proxy Port",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:441"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:468"
     ]
   },
   {
@@ -1215,7 +1229,14 @@
     "call": "Network Interface",
     "key": "Network Interface",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:258"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:277"
+    ]
+  },
+  {
+    "call": "New name",
+    "key": "New name",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:113"
     ]
   },
   {
@@ -1286,7 +1307,7 @@
     "call": "not used",
     "key": "not used",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:190"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:209"
     ]
   },
   {
@@ -1300,7 +1321,7 @@
     "call": "Okop Settings",
     "key": "Okop Settings",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:56"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:191"
     ]
   },
   {
@@ -1321,14 +1342,14 @@
     "call": "Outbound Configuration",
     "key": "Outbound Configuration",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:240"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:259"
     ]
   },
   {
     "call": "Outbound connections",
     "key": "Outbound connections",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:86"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:223"
     ]
   },
   {
@@ -1397,21 +1418,21 @@
     "call": "Port %d is already used by another connection",
     "key": "Port %d is already used by another connection",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:470"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:497"
     ]
   },
   {
     "call": "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)",
     "key": "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:456"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:483"
     ]
   },
   {
     "call": "Proxy Configuration URL",
     "key": "Proxy Configuration URL",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:212"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:231"
     ]
   },
   {
@@ -1464,10 +1485,26 @@
     ]
   },
   {
+    "call": "Rename",
+    "key": "Rename",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:74",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:78",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:120"
+    ]
+  },
+  {
+    "call": "Rename %s",
+    "key": "Rename %s",
+    "places": [
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:112"
+    ]
+  },
+  {
     "call": "Resolve domains sent through this connection with a DNS server reached through the connection itself",
     "key": "Resolve domains sent through this connection with a DNS server reached through the connection itself",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:295"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:314"
     ]
   },
   {
@@ -1572,7 +1609,7 @@
     "call": "Section",
     "key": "Section",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:75"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:210"
     ]
   },
   {
@@ -1586,7 +1623,7 @@
     "call": "Sections",
     "key": "Sections",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:68"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:203"
     ]
   },
   {
@@ -1614,14 +1651,14 @@
     "call": "Select network interface for VPN connection",
     "key": "Select network interface for VPN connection",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:259"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:278"
     ]
   },
   {
     "call": "Select or enter DNS server address",
     "key": "Select or enter DNS server address",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:318",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:337",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:25"
     ]
   },
@@ -1643,7 +1680,7 @@
     "call": "Select the DNS protocol type for the domain resolver",
     "key": "Select the DNS protocol type for the domain resolver",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:306"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:325"
     ]
   },
   {
@@ -1706,7 +1743,7 @@
     "call": "Settings",
     "key": "Settings",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:123"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:261"
     ]
   },
   {
@@ -1820,7 +1857,7 @@
     "call": "Specify the port number on which the mixed proxy will run for this connection. Make sure the selected port is not used by another service",
     "key": "Specify the port number on which the mixed proxy will run for this connection. Make sure the selected port is not used by another service",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:442"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:469"
     ]
   },
   {
@@ -1891,7 +1928,7 @@
     "call": "The connection %s is used by: %s. Choose another connection there first.",
     "key": "The connection %s is used by: %s. Choose another connection there first.",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:104"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:242"
     ]
   },
   {
@@ -1905,28 +1942,28 @@
     "call": "The maximum difference in response times (ms) allowed when comparing servers",
     "key": "The maximum difference in response times (ms) allowed when comparing servers",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:420"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:447"
     ]
   },
   {
     "call": "The name %s is already taken",
     "key": "The name %s is already taken",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:38"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:40"
     ]
   },
   {
     "call": "The name %s is reserved, choose another one",
     "key": "The name %s is reserved, choose another one",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:36"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:37"
     ]
   },
   {
     "call": "The URL used to test server connectivity",
     "key": "The URL used to test server connectivity",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:393"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:420"
     ]
   },
   {
@@ -1968,14 +2005,14 @@
     "call": "Type",
     "key": "Type",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:166"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:185"
     ]
   },
   {
     "call": "UDP (Unprotected DNS)",
     "key": "UDP (Unprotected DNS)",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:310",
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:329",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:17"
     ]
   },
@@ -1983,7 +2020,7 @@
     "call": "UDP over TCP",
     "key": "UDP over TCP",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:231"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:250"
     ]
   },
   {
@@ -2032,14 +2069,14 @@
     "call": "URLTest Tolerance",
     "key": "URLTest Tolerance",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:419"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:446"
     ]
   },
   {
     "call": "Used by",
     "key": "Used by",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:186"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:205"
     ]
   },
   {
@@ -2131,7 +2168,7 @@
     "call": "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
     "key": "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links",
     "places": [
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:213"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:232"
     ]
   },
   {
