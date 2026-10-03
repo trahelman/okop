@@ -16,47 +16,71 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: src/okop/tabs/dashboard/initController.ts:345
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:118
+msgid "%s was not renamed: %s"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:358
 msgid "✔ Enabled"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:356
+#: src/okop/tabs/dashboard/initController.ts:368
 msgid "✔ Running"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:346
+#: src/okop/tabs/dashboard/initController.ts:358
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:357
+#: src/okop/tabs/dashboard/initController.ts:369
 msgid "✘ Stopped"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:307
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:167
+msgid "A group cannot contain itself"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:239
+msgid "A group combines other connections: fallback uses the first one that responds, fastest picks by latency, manual choice is switched on the dashboard"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:34
+msgid "A name may contain only Latin letters, digits and _"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:321
 msgid "Active Connections"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:164
+msgid "Add at least one connection to the group"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runNftCheck.ts:106
 msgid "Additional marking rules found"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:169
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:116
 msgid "Advanced"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:247
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:232
 msgid "Allows access to YACD from the WAN. Make sure to open the appropriate port in your firewall."
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:371
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:469
+msgid "An HTTP and SOCKS proxy on the router that sends everything it receives through this connection"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:272
 msgid "Applicable for SOCKS and Shadowsocks proxy"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:624
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:294
 msgid "At least one valid domain must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:708
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:377
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr ""
 
@@ -64,7 +88,8 @@ msgstr ""
 msgid "Available actions"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:92
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:41
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:128
 msgid "Block"
 msgstr ""
 
@@ -76,6 +101,10 @@ msgstr ""
 msgid "Bootstrap DNS server"
 msgstr ""
 
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:62
+msgid "Bootstrap DNS server must be an IPv4 address"
+msgstr ""
+
 #: src/okop/tabs/diagnostic/checks/runFakeIPCheck.ts:58
 msgid "Browser is not using FakeIP"
 msgstr ""
@@ -84,12 +113,16 @@ msgstr ""
 msgid "Browser is using FakeIP correctly"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:360
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:334
 msgid "Cache File Path"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:374
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:348
 msgid "Cache file path cannot be empty"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:129
+msgid "Cancel"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runDnsCheck.ts:27
@@ -97,6 +130,14 @@ msgstr ""
 #: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:27
 #: src/okop/tabs/diagnostic/checks/runSingBoxCheck.ts:25
 msgid "Cannot receive checks result"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:414
+msgid "Check Interval"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:429
+msgid "Check URL"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runDnsCheck.ts:15
@@ -127,44 +168,63 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:476
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:146
 msgid "Community Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:347
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:321
 msgid "Config File Path"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:27
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:207
 msgid "Configuration for Okop service"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:187
-msgid "Configuration Type"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:157
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:167
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:245
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:104
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:114
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:136
 msgid "Connection"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:175
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:89
+msgid "connection %s does not exist"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:172
+msgid "Connection %s does not exist"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:283
+msgid "Connection for Downloading Lists"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:238
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:122
 msgid "Connection Type"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:190
-msgid "Connection URL"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:137
+msgid "Connections are set up on the Outbound connections tab"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:374
+msgid "Connections of the group. For a fallback group the order is the priority: the first one that responds is used"
 msgstr ""
 
 #: src/partials/modal/renderModal.ts:20
 msgid "Copy"
 msgstr ""
 
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:531
+msgid "Create a connection on the Outbound connections tab first"
+msgstr ""
+
 #: src/okop/tabs/dashboard/partials/renderWidget.ts:22
 msgid "Currently unavailable"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:85
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:307
 msgid "Dashboard"
 msgstr ""
 
@@ -172,23 +232,23 @@ msgstr ""
 msgid "Dashboard currently unavailable"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:222
-msgid "Delay in milliseconds before reloading okop after interface UP"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:419
+msgid "Default: 15s for fallback, 3m for fastest"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:229
-msgid "Delay value cannot be empty"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:212
+msgid "Delay in milliseconds before reloading okop after interface UP"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runDnsCheck.ts:82
 msgid "DHCP has DNS server"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:70
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:292
 msgid "Diagnostics"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:397
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:371
 msgid "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded"
 msgstr ""
 
@@ -196,16 +256,16 @@ msgstr ""
 msgid "Disable autostart"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:265
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:251
 msgid "Disable QUIC"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:266
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:252
 msgid "Disable the QUIC protocol to improve compatibility or fix issues with video streaming"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:568
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:651
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:238
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:321
 msgid "Disabled"
 msgstr ""
 
@@ -213,17 +273,17 @@ msgstr ""
 msgid "DNS on router"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:442
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:348
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:15
 msgid "DNS over HTTPS (DoH)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:443
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:349
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:16
 msgid "DNS over TLS (DoT)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:439
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:345
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:12
 msgid "DNS Protocol Type"
 msgstr ""
@@ -232,7 +292,7 @@ msgstr ""
 msgid "DNS Rewrite TTL"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:453
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:357
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:24
 msgid "DNS Server"
 msgstr ""
@@ -245,24 +305,20 @@ msgstr ""
 msgid "Do not panic, everything can be fixed, just..."
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:428
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:334
 msgid "Domain Resolver"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:88
-msgid "domain resolver: %s"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:121
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:67
 msgid "domains: %d"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:338
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:312
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:241
-#: src/okop/tabs/dashboard/initController.ts:275
+#: src/okop/tabs/dashboard/initController.ts:255
+#: src/okop/tabs/dashboard/initController.ts:289
 msgid "Downlink"
 msgstr ""
 
@@ -270,25 +326,20 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:326
-msgid "Download Lists Directly if Proxy/VPN Fails"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:275
+msgid "Download all lists through one of the connections instead of directly"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:288
-msgid "Download Lists via Proxy/VPN"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:300
+msgid "Download Lists Directly if the Connection Fails"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:297
-msgid "Download Lists via specific proxy section"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:274
+msgid "Download Lists via a Connection"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:289
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:298
-msgid "Downloading all lists via specific Proxy/VPN"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:569
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:652
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:239
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:322
 msgid "Dynamic List"
 msgstr ""
 
@@ -296,75 +347,64 @@ msgstr ""
 msgid "Enable autostart"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:429
-msgid "Enable built-in DNS resolver for domains handled by this section"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:882
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:523
 msgid "Enable DNS resolve to get real IP when routing"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:854
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:468
 msgid "Enable Mixed Proxy"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:126
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:116
 msgid "Enable Output Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:855
-msgid "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:237
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:222
 msgid "Enable YACD"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:246
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:231
 msgid "Enable YACD WAN Access"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:232
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:261
+msgid "Enter a proxy link"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:281
 msgid "Enter complete outbound configuration in JSON format"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:606
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:276
 msgid "Enter domain names separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:579
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:249
 msgid "Enter domain names without protocols, e.g. example.com or sub.example.com"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:662
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:332
 msgid "Enter subnets in CIDR notation (e.g. 103.21.244.0/22) or single IP addresses"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:307
-msgid "Every 1 minute"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:359
+msgid "Enter subnets in CIDR notation or single IP addresses, separated by commas, spaces, or newlines. You can add comments using //"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:308
-msgid "Every 3 minutes"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:288
+msgid "Enter the outbound configuration"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:306
-msgid "Every 30 seconds"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:309
-msgid "Every 5 minutes"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:438
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:412
 msgid "Exclude NTP"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:439
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:413
 msgid "Exclude NTP protocol traffic from the tunnel to prevent it from being routed through the proxy or VPN"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:95
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:44
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:129
 msgid "Exclusion"
 msgstr ""
 
@@ -381,16 +421,24 @@ msgstr ""
 msgid "Failed to execute!"
 msgstr ""
 
-#: src/okop/methods/custom/getDashboardSections.ts:150
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:32
+msgid "Fallback group"
+msgstr ""
+
+#: src/okop/methods/custom/getDashboardSections.ts:178
 #: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:59
 msgid "Fastest"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:826
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:34
+msgid "Fastest of a group"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:495
 msgid "Fully Routed IPs"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:136
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:82
 msgid "fully routed IPs: %d"
 msgstr ""
 
@@ -402,23 +450,35 @@ msgstr ""
 msgid "Global check"
 msgstr ""
 
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:120
+msgid "group %s"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:177
+msgid "Groups contain each other: %s"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:415
+msgid "How often the members are checked"
+msgstr ""
+
 #: src/okop/api.ts:27
 msgid "HTTP error"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:327
-msgid "If lists cannot be downloaded via the selected Proxy/VPN, download them without it"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:301
+msgid "If lists cannot be downloaded through the selected connection, download them without it"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:189
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:179
 msgid "Interface Monitoring"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:221
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:211
 msgid "Interface Monitoring Delay"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:190
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:180
 msgid "Interface monitoring for Bad WAN"
 msgstr ""
 
@@ -491,15 +551,15 @@ msgstr ""
 msgid "Invalid IP address"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:39
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:80
 msgid "invalid JSON"
 msgstr ""
 
-#: src/validators/validateOutboundJson.ts:9
+#: src/validators/validateOutboundJson.ts:10
 msgid "Invalid JSON format"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:15
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:48
 msgid "invalid link"
 msgstr ""
 
@@ -583,15 +643,15 @@ msgstr ""
 msgid "Invalid SOCKS URL: parsing failed"
 msgstr ""
 
-#: src/validators/validateTrojanUrl.ts:15
+#: src/validators/validateTrojanUrl.ts:16
 msgid "Invalid Trojan URL: must not contain spaces"
 msgstr ""
 
-#: src/validators/validateTrojanUrl.ts:8
+#: src/validators/validateTrojanUrl.ts:9
 msgid "Invalid Trojan URL: must start with trojan://"
 msgstr ""
 
-#: src/validators/validateTrojanUrl.ts:56
+#: src/validators/validateTrojanUrl.ts:66
 msgid "Invalid Trojan URL: parsing failed"
 msgstr ""
 
@@ -600,7 +660,7 @@ msgstr ""
 msgid "Invalid URL format"
 msgstr ""
 
-#: src/validators/validateVlessUrl.ts:110
+#: src/validators/validateVlessUrl.ts:116
 msgid "Invalid VLESS URL: parsing failed"
 msgstr ""
 
@@ -616,36 +676,40 @@ msgstr ""
 msgid "Latest"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:80
-msgid "links: %d"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:128
+msgid "list downloads"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:276
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:262
 msgid "List Update Frequency"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:161
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:168
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:108
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:115
 msgid "Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:396
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:284
+msgid "Lists are downloaded through this connection"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:370
 msgid "Lists Storage Path"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:730
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:399
 msgid "Local Domain Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:129
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:75
 msgid "local lists: %d"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:754
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:423
 msgid "Local Subnet Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:420
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:394
 msgid "Log Level"
 msgstr ""
 
@@ -653,35 +717,51 @@ msgstr ""
 msgid "Main DNS"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:311
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:36
+msgid "Manual choice of a group"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:373
+msgid "Members"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:325
 msgid "Memory Usage"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:102
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:218
 msgid "mixed proxy on port %s"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:868
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:478
 msgid "Mixed Proxy Port"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:198
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:188
 msgid "Monitored Interfaces"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:334
-msgid "Must be a number in the range of 50 - 1000"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:30
+msgid "Network interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:381
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:298
 msgid "Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:86
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:125
+msgid "New name"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:38
+msgid "no connection selected"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:98
 msgid "no interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:145
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:91
 msgid "no lists"
 msgstr ""
 
@@ -689,7 +769,9 @@ msgstr ""
 msgid "No other marking rules found"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:98
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:38
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:104
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:47
 msgid "not configured"
 msgstr ""
 
@@ -697,9 +779,9 @@ msgstr ""
 msgid "Not implement yet"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:75
-#: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:81
-#: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:100
+#: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:86
+#: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:92
+#: src/okop/tabs/diagnostic/checks/runSectionsCheck.ts:111
 msgid "Not responding"
 msgstr ""
 
@@ -711,15 +793,19 @@ msgstr ""
 msgid "Not running"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:343
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:230
+msgid "not used"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:357
 msgid "Okop"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:26
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:206
 msgid "Okop Settings"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:339
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:313
 msgid "Okop will not modify your DHCP configuration"
 msgstr ""
 
@@ -727,37 +813,41 @@ msgstr ""
 msgid "Operation timed out"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:193
-msgid "Outbound Config"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:280
+msgid "Outbound Configuration"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:231
-msgid "Outbound Configuration"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:238
+msgid "Outbound connections"
+msgstr ""
+
+#: src/validators/validateOutboundJson.ts:21
+msgid "Outbound must be a JSON object with a \"type\" field"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:38
 msgid "Outdated"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:135
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:125
 msgid "Output Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:407
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:381
 #: src/validators/validatePath.ts:7
 msgid "Path cannot be empty"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:378
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:411
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:352
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:385
 msgid "Path must be absolute (start with /)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:387
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:361
 msgid "Path must contain at least one directory (like /tmp/cache.db)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:382
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:356
 msgid "Path must end with cache.db"
 msgstr ""
 
@@ -769,8 +859,20 @@ msgstr ""
 msgid "Pending"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:201
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:507
+msgid "Port %d is already used by another connection"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:493
+msgid "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:252
 msgid "Proxy Configuration URL"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:26
+msgid "Proxy link"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runFakeIPCheck.ts:66
@@ -781,23 +883,37 @@ msgstr ""
 msgid "Proxy traffic is routed via FakeIP"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:510
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:180
 msgid "Regional options cannot be used together"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:778
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:447
 msgid "Remote Domain Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:133
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:79
 msgid "remote lists: %d"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:802
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:471
 msgid "Remote Subnet Lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:881
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:74
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:78
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:132
+msgid "Rename"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:124
+msgid "Rename %s"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:335
+msgid "Resolve domains sent through this connection with a DNS server reached through the connection itself"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:522
 msgid "Resolve real IP for routing"
 msgstr ""
 
@@ -813,7 +929,7 @@ msgstr ""
 msgid "Router DNS is routed through sing-box"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:449
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:423
 msgid "Routing Excluded IPs"
 msgstr ""
 
@@ -845,100 +961,92 @@ msgstr ""
 msgid "Run Diagnostic"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:529
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:199
 msgid "Russia inside restrictions"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:257
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:242
 msgid "Secret key for authenticating remote access to YACD when WAN access is enabled."
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:45
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:225
 msgid "Section"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:38
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:114
+msgid "section %s"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:218
 msgid "Sections"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:477
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:147
 msgid "Select a predefined list for routing"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:176
-msgid "Select between VPN and Proxy connection methods for traffic routing"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:13
 msgid "Select DNS protocol to use"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:277
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:263
 msgid "Select how often the domain or subnet lists are updated automatically"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:188
-msgid "Select how to configure the proxy"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:382
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:299
 msgid "Select network interface for VPN connection"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:454
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:358
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:25
 msgid "Select or enter DNS server address"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:361
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:335
 msgid "Select or enter path for sing-box cache file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:348
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:322
 msgid "Select path for sing-box config file. Change this ONLY if you know what you are doing"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:440
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:346
 msgid "Select the DNS protocol type for the domain resolver"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:566
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:236
 msgid "Select the list type for adding custom domains"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:649
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:319
 msgid "Select the list type for adding custom subnets"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:421
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:395
 msgid "Select the log level for sing-box"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:90
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:80
 msgid "Select the network interface from which the traffic will originate"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:136
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:126
 msgid "Select the network interface to which the traffic will originate"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:199
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:189
 msgid "Select the WAN interfaces to be monitored"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:191
-msgid "Selector"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:123
+msgid "Send the traffic of the lists through a connection, block it, or let it go directly"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:255
-msgid "Selector Proxy Links"
-msgstr ""
-
-#: src/okop/tabs/dashboard/initController.ts:340
+#: src/okop/tabs/dashboard/initController.ts:354
 msgid "Services info"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:54
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:276
 msgid "Settings"
 msgstr ""
 
@@ -947,7 +1055,7 @@ msgstr ""
 msgid "Show sing-box config"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:354
+#: src/okop/tabs/dashboard/initController.ts:366
 msgid "Sing-box"
 msgstr ""
 
@@ -957,6 +1065,10 @@ msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runSingBoxCheck.ts:62
 msgid "Sing-box installed"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:28
+msgid "sing-box JSON"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/checks/runSingBoxCheck.ts:87
@@ -975,29 +1087,33 @@ msgstr ""
 msgid "Sing-box version is compatible (newer than 1.12.4)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:89
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:79
 msgid "Source Network Interface"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:450
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:424
 msgid "Specify a local IP address to be excluded from routing"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:827
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:496
 msgid "Specify local IP addresses or subnets whose traffic will always be routed through the configured route"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:779
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:448
 msgid "Specify remote URLs to download and use domain lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:803
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:472
 msgid "Specify remote URLs to download and use subnet lists"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:731
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:755
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:400
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:424
 msgid "Specify the path to the list file located on the router filesystem"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:479
+msgid "Specify the port number on which the mixed proxy will run for this connection. Make sure the selected port is not used by another service"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:69
@@ -1008,7 +1124,7 @@ msgstr ""
 msgid "Stop okop"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:125
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:71
 msgid "subnets: %d"
 msgstr ""
 
@@ -1016,7 +1132,7 @@ msgstr ""
 msgid "Successfully copied!"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:304
+#: src/okop/tabs/dashboard/initController.ts:318
 msgid "System info"
 msgstr ""
 
@@ -1028,40 +1144,52 @@ msgstr ""
 msgid "Table exist"
 msgstr ""
 
-#: src/okop/tabs/dashboard/partials/renderSections.ts:108
+#: src/okop/tabs/dashboard/partials/renderSections.ts:116
 msgid "Test latency"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:570
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:653
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:240
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:323
 msgid "Text List"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:257
+msgid "The connection %s is used by: %s. Choose another connection there first."
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:46
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:304
-msgid "The interval between connectivity tests"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:318
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:457
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:342
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:40
+msgid "The name %s is already taken"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:37
+msgid "The name %s is reserved, choose another one"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:430
 msgid "The URL used to test server connectivity"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:127
+msgid "Through a connection"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:69
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:238
+#: src/okop/tabs/dashboard/initController.ts:252
 msgid "Traffic"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:268
+#: src/okop/tabs/dashboard/initController.ts:282
 msgid "Traffic Total"
 msgstr ""
 
@@ -1069,20 +1197,16 @@ msgstr ""
 msgid "Troubleshooting"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:80
-msgid "TTL must be a positive number"
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:206
+msgid "Type"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:75
-msgid "TTL value cannot be empty"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:444
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:350
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:17
 msgid "UDP (Unprotected DNS)"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:370
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:271
 msgid "UDP over TCP"
 msgstr ""
 
@@ -1100,8 +1224,12 @@ msgstr ""
 msgid "Unknown error"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:240
-#: src/okop/tabs/dashboard/initController.ts:271
+#: src/okop/tabs/dashboard/partials/renderSections.ts:73
+msgid "Unreachable"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:254
+#: src/okop/tabs/dashboard/initController.ts:285
 msgid "Uplink"
 msgstr ""
 
@@ -1113,47 +1241,35 @@ msgstr ""
 msgid "URL must use one of the following protocols:"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:192
-msgid "URLTest"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:303
-msgid "URLTest Check Interval"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:279
-msgid "URLTest Proxy Links"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:341
-msgid "URLTest Testing URL"
-msgstr ""
-
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:317
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:456
 msgid "URLTest Tolerance"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:565
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:226
+msgid "Used by"
+msgstr ""
+
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:235
 msgid "User Domain List Type"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:578
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:248
 msgid "User Domains"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:605
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:275
 msgid "User Domains List"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:648
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:318
 msgid "User Subnet List Type"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:661
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:331
 msgid "User Subnets"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:688
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:358
 msgid "User Subnets List"
 msgstr ""
 
@@ -1163,19 +1279,19 @@ msgstr ""
 #: src/validators/validateDomain.ts:30
 #: src/validators/validateHysteriaUrl.ts:120
 #: src/validators/validateIp.ts:8
-#: src/validators/validateOutboundJson.ts:7
+#: src/validators/validateOutboundJson.ts:25
 #: src/validators/validatePath.ts:16
 #: src/validators/validateShadowsocksUrl.ts:95
 #: src/validators/validateSocksUrl.ts:80
 #: src/validators/validateSubnet.ts:38
-#: src/validators/validateTrojanUrl.ts:59
+#: src/validators/validateTrojanUrl.ts:69
 #: src/validators/validateUrl.ts:28
-#: src/validators/validateVlessUrl.ts:108
+#: src/validators/validateVlessUrl.ts:114
 msgid "Valid"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:638
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:720
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:308
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:389
 msgid "Validation errors:"
 msgstr ""
 
@@ -1188,24 +1304,22 @@ msgstr ""
 msgid "Visit Wiki"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:202
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:256
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:280
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:253
 msgid "vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:512
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:182
 msgid "Warning: %s cannot be used together with %s. Previous selections have been removed."
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:531
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:201
 msgid "Warning: Russia inside can only be used with %s. %s already in Russia inside and have been removed from selection."
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:256
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:241
 msgid "YACD Secret Key"
 msgstr ""
 
-#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:127
+#: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:117
 msgid "You can select Output Network Interface, by default autodetect"
 msgstr ""

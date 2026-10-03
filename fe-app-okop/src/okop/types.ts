@@ -80,6 +80,8 @@ export namespace Okop {
     latency: number;
     type: string;
     selected: boolean;
+    // A latency test on this page covered the outbound and it did not respond
+    unreachable?: boolean;
   }
 
   export interface OutboundGroup {

@@ -10,28 +10,28 @@
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:345"
+      "src/okop/tabs/dashboard/initController.ts:358"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:356"
+      "src/okop/tabs/dashboard/initController.ts:368"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:346"
+      "src/okop/tabs/dashboard/initController.ts:358"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:357"
+      "src/okop/tabs/dashboard/initController.ts:369"
     ]
   },
   {
@@ -59,7 +59,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:307"
+      "src/okop/tabs/dashboard/initController.ts:321"
     ]
   },
   {
@@ -517,8 +517,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:241",
-      "src/okop/tabs/dashboard/initController.ts:275"
+      "src/okop/tabs/dashboard/initController.ts:255",
+      "src/okop/tabs/dashboard/initController.ts:289"
     ]
   },
   {
@@ -1222,7 +1222,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:311"
+      "src/okop/tabs/dashboard/initController.ts:325"
     ]
   },
   {
@@ -1342,7 +1342,7 @@
     "call": "Okop",
     "key": "Okop",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:343"
+      "src/okop/tabs/dashboard/initController.ts:357"
     ]
   },
   {
@@ -1764,7 +1764,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:340"
+      "src/okop/tabs/dashboard/initController.ts:354"
     ]
   },
   {
@@ -1786,7 +1786,7 @@
     "call": "Sing-box",
     "key": "Sing-box",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:354"
+      "src/okop/tabs/dashboard/initController.ts:366"
     ]
   },
   {
@@ -1920,7 +1920,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:304"
+      "src/okop/tabs/dashboard/initController.ts:318"
     ]
   },
   {
@@ -1941,7 +1941,7 @@
     "call": "Test latency",
     "key": "Test latency",
     "places": [
-      "src/okop/tabs/dashboard/partials/renderSections.ts:107"
+      "src/okop/tabs/dashboard/partials/renderSections.ts:116"
     ]
   },
   {
@@ -2012,14 +2012,14 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:238"
+      "src/okop/tabs/dashboard/initController.ts:252"
     ]
   },
   {
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:268"
+      "src/okop/tabs/dashboard/initController.ts:282"
     ]
   },
   {
@@ -2072,11 +2072,18 @@
     ]
   },
   {
+    "call": "Unreachable",
+    "key": "Unreachable",
+    "places": [
+      "src/okop/tabs/dashboard/partials/renderSections.ts:73"
+    ]
+  },
+  {
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:240",
-      "src/okop/tabs/dashboard/initController.ts:271"
+      "src/okop/tabs/dashboard/initController.ts:254",
+      "src/okop/tabs/dashboard/initController.ts:285"
     ]
   },
   {

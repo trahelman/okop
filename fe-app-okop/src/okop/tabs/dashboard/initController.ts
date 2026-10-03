@@ -9,6 +9,16 @@ import { logger, socket, store, StoreType } from '../../services';
 import { renderSections, renderWidget } from './partials';
 import { fetchServicesInfo } from '../../fetchers';
 import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
+import { markUnreachable } from './markUnreachable';
+import { Okop } from '../../types';
+
+// Latency is tested when the dashboard opens and then periodically: nothing else tests a connection a
+// section uses directly, and its card kept the last result after the connection went down.
+const LATENCY_TEST_INTERVAL = 60_000;
+
+// Outbounds a latency test on this page covered
+const testedOutbounds = new Set<string>();
+let latencyTestTimer: ReturnType<typeof setInterval> | undefined;
 
 // Fetchers
 
@@ -30,10 +40,30 @@ async function fetchDashboardSections() {
 
   store.set({
     sectionsWidget: {
-      latencyFetching: false,
+      // A test may still be running, it clears the flag itself
+      latencyFetching: store.get().sectionsWidget.latencyFetching,
       loading: false,
       failed: !success,
-      data,
+      data: markUnreachable(data, testedOutbounds),
+    },
+  });
+}
+
+async function testSectionLatency(section: Okop.OutboundGroup) {
+  if (section.withTagSelect) {
+    await OkopShellMethods.getClashApiGroupLatency(section.code);
+  } else if (section.outbounds.length) {
+    await OkopShellMethods.getClashApiProxyLatency(section.outbounds[0].code);
+  }
+
+  section.outbounds.forEach((outbound) => testedOutbounds.add(outbound.code));
+}
+
+function setLatencyFetching(latencyFetching: boolean) {
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching,
     },
   });
 }
@@ -126,42 +156,32 @@ async function handleChooseOutbound(selector: string, tag: string) {
   await fetchDashboardSections();
 }
 
-async function handleTestGroupLatency(tag: string) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true,
-    },
-  });
-
-  await OkopShellMethods.getClashApiGroupLatency(tag);
+async function handleTestLatency(section: Okop.OutboundGroup) {
+  setLatencyFetching(true);
+  await testSectionLatency(section);
   await fetchDashboardSections();
-
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false,
-    },
-  });
+  setLatencyFetching(false);
 }
 
-async function handleTestProxyLatency(tag: string) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true,
-    },
-  });
+async function testAllLatency(showProgress: boolean) {
+  const sections = store.get().sectionsWidget.data;
 
-  await OkopShellMethods.getClashApiProxyLatency(tag);
+  if (showProgress) {
+    setLatencyFetching(true);
+  }
+
+  await Promise.all(sections.map((section) => testSectionLatency(section)));
+
+  // The dashboard was closed while the tests ran
+  if (!latencyTestTimer) {
+    return;
+  }
+
   await fetchDashboardSections();
 
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false,
-    },
-  });
+  if (showProgress) {
+    setLatencyFetching(false);
+  }
 }
 
 // Renderer
@@ -197,13 +217,7 @@ async function renderSectionsWidget() {
       failed: sectionsWidget.failed,
       section,
       latencyFetching: sectionsWidget.latencyFetching,
-      onTestLatency: (tag) => {
-        if (section.withTagSelect) {
-          return handleTestGroupLatency(tag);
-        }
-
-        return handleTestProxyLatency(tag);
-      },
+      onTestLatency: () => handleTestLatency(section),
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       },
@@ -341,9 +355,7 @@ async function renderServicesInfoWidget() {
     items: [
       {
         key: _('Okop'),
-        value: servicesInfoWidget.data.okop
-          ? _('✔ Enabled')
-          : _('✘ Disabled'),
+        value: servicesInfoWidget.data.okop ? _('✔ Enabled') : _('✘ Disabled'),
         attributes: {
           class: servicesInfoWidget.data.okop
             ? 'pdk_dashboard-page__widgets-section__item__row--success'
@@ -402,6 +414,11 @@ async function onPageMount() {
 
   // Initial sections fetch
   await fetchDashboardSections();
+  latencyTestTimer = setInterval(
+    () => testAllLatency(false),
+    LATENCY_TEST_INTERVAL,
+  );
+  testAllLatency(true);
   await fetchServicesInfo();
   await connectToClashSockets();
 }
@@ -409,6 +426,9 @@ async function onPageMount() {
 function onPageUnmount() {
   // Remove old listener
   store.unsubscribe(onStoreUpdate);
+  clearInterval(latencyTestTimer);
+  latencyTestTimer = undefined;
+  testedOutbounds.clear();
   // Clear store
   store.reset([
     'bandwidthWidget',

@@ -92,6 +92,10 @@ export const styles = `
     border-color: var(--success-color-medium, green);
 }
 
+.pdk_dashboard-page__outbound-grid__item--unreachable {
+    border-color: var(--error-color-medium, red);
+}
+
 .pdk_dashboard-page__outbound-grid__item__footer {
     display: flex;
     align-items: center;
