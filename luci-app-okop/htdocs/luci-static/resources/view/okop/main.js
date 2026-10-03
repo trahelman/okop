@@ -803,7 +803,7 @@ async function getDashboardSections() {
     connections.flatMap((connection) => toArray(connection.members))
   );
   const data = connections.filter(
-    (connection) => usedBySection.has(connection[".name"]) || !members.has(connection[".name"]) || GROUP_TYPES.includes(connection.type)
+    (connection) => findProxy(tagOf(connection[".name"])) && (usedBySection.has(connection[".name"]) || !members.has(connection[".name"]) || GROUP_TYPES.includes(connection.type))
   ).map((connection) => {
     const name = connection[".name"];
     const code = tagOf(name);
@@ -3894,7 +3894,15 @@ async function runSectionsCheck() {
                 latency: `[${_("Fastest")}] ${latency2}`
               };
             }
-            const selectedProxyDelay = latencyGroup.data?.[selectedOutbound?.code ?? ""];
+            let selectedProxyDelay = latencyGroup.data?.[selectedOutbound?.code ?? ""];
+            if (!selectedProxyDelay && selectedOutbound?.code) {
+              const own = await OkopShellMethods.getClashApiProxyLatency(
+                selectedOutbound.code
+              );
+              if (own.success && !own.data.message) {
+                selectedProxyDelay = own.data.delay;
+              }
+            }
             if (selectedProxyDelay) {
               return {
                 success: true,

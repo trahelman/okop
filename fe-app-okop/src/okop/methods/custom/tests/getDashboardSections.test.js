@@ -42,6 +42,13 @@ describe('getDashboardSections', () => {
     expect(data.map((group) => group.displayName)).toEqual(['fb', 'spare']);
   });
 
+  it('leaves out connections sing-box does not have', async () => {
+    delete config.proxies['spare-out'];
+    config.sections.push({ '.name': 'fresh', '.type': 'outbound', type: 'url', url: 'ss://x@h:1#Fresh' });
+    const { data } = await getDashboardSections();
+    expect(data.map((group) => group.displayName)).toEqual(['fb']);
+  });
+
   it('shows the members of a fallback group, which cannot be chosen by hand', async () => {
     const { data } = await getDashboardSections();
     const fallback = data.find((group) => group.code === 'fb-out');

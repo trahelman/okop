@@ -138,8 +138,13 @@ function findCycle(name, members) {
       return [...path, current];
     }
 
-    const currentMembers =
-      current === name ? members : toArray(uci.get("okop", current, "members"));
+    // The backend follows members of groups only
+    let currentMembers = [];
+    if (current === name) {
+      currentMembers = members;
+    } else if (GROUP_TYPES.includes(uci.get("okop", current, "type"))) {
+      currentMembers = toArray(uci.get("okop", current, "members"));
+    }
     for (const member of currentMembers) {
       const cycle = visit(member, [...path, current]);
       if (cycle) {
@@ -155,6 +160,9 @@ function findCycle(name, members) {
 
 // Why a member list cannot be saved, or null
 function membersError(name, members) {
+  if (!members.length) {
+    return _("Add at least one connection to the group");
+  }
   if (members.includes(name)) {
     return _("A group cannot contain itself");
   }
@@ -170,6 +178,19 @@ function membersError(name, members) {
   }
 
   return null;
+}
+
+// LuCI drops the errors of a modal form silently: the message is put into the field itself. Returns
+// whether there is an error.
+function showFieldError(option, message) {
+  const field = document.querySelector(`.modal [data-name="${option}"] .cbi-value-field`);
+  field?.querySelector(".okop-field-error")?.remove();
+  if (!message) {
+    return false;
+  }
+
+  field?.append(E("div", { class: "alert-message warning okop-field-error" }, [message]));
+  return true;
 }
 
 function lines(values) {
@@ -379,12 +400,7 @@ function createOutboundContent(section) {
   o.parse = function (section_id) {
     if (this.isActive(section_id)) {
       const message = membersError(section_id, toArray(this.formvalue(section_id)));
-      const field = document.querySelector('.modal [data-name="members"] .cbi-value-field');
-      field?.querySelector(".okop-members-error")?.remove();
-      if (message) {
-        field?.append(
-          E("div", { class: "alert-message warning okop-members-error" }, [message]),
-        );
+      if (showFieldError("members", message)) {
         return Promise.reject(new TypeError(message));
       }
     }
@@ -398,20 +414,14 @@ function createOutboundContent(section) {
     _("Check Interval"),
     _("How often the members are checked"),
   );
+  // A fallback group should notice a failure quickly, the fastest member can be picked less often:
+  // without a choice okop uses 15s and 3m
+  o.value("", _("Default: 15s for fallback, 3m for fastest"));
   ["10s", "15s", "30s", "1m", "3m", "5m"].forEach((value) =>
     o.value(value, value),
   );
   o.depends("type", "fallback");
   o.depends("type", "urltest");
-  // A fallback group should notice a failure quickly, the fastest member can be picked less often.
-  // Written even when unchanged: the default shown depends on the saved type.
-  o.forcewrite = true;
-  o.cfgvalue = function (section_id) {
-    return (
-      uci.get("okop", section_id, "check_interval") ||
-      (uci.get("okop", section_id, "type") === "urltest" ? "3m" : "15s")
-    );
-  };
 
   o = section.option(
     form.Value,
@@ -513,6 +523,18 @@ function addConnectionOption(section, tab, name, title, description) {
       this.value(connection, `${connection} (${describeConnection(connection)})`),
     );
     return form.ListValue.prototype.load.apply(this, arguments);
+  };
+  o.parse = function (section_id) {
+    if (this.isActive(section_id)) {
+      const message = connectionNames().length
+        ? null
+        : _("Create a connection on the Outbound connections tab first");
+      if (showFieldError(name, message)) {
+        return Promise.reject(new TypeError(message));
+      }
+    }
+
+    return form.ListValue.prototype.parse.apply(this, arguments);
   };
   return o;
 }

@@ -84,6 +84,8 @@ function addRenameAction(gridSection, updateReferences) {
   };
 
   gridSection.showRenameModal = function (section_id) {
+    // The dialog is only hidden: a second Enter while the saves run would rename twice
+    let started = false;
     const input = E("input", {
       class: "cbi-input-text",
       type: "text",
@@ -93,6 +95,9 @@ function addRenameAction(gridSection, updateReferences) {
     const error = E("div", { class: "cbi-value-description" });
 
     const rename = () => {
+      if (started) {
+        return;
+      }
       const name = input.value.trim();
       if (name === section_id) {
         ui.hideModal();
@@ -105,8 +110,15 @@ function addRenameAction(gridSection, updateReferences) {
         return;
       }
 
+      started = true;
       ui.hideModal();
-      return this.handleRename(section_id, name);
+      return this.handleRename(section_id, name).catch((e) => {
+        ui.addNotification(
+          null,
+          E("p", {}, [_("%s was not renamed: %s").format(section_id, e?.message ?? e)]),
+          "danger",
+        );
+      });
     };
 
     ui.showModal(_("Rename %s").format(section_id), [
@@ -134,19 +146,22 @@ function addRenameAction(gridSection, updateReferences) {
     const next = siblings[position + 1];
     const previous = siblings[position - 1];
 
-    // Pending form values are saved first: the copy is made from the saved values
+    // Pending form values are saved first: the copy is made from the saved values. The copy and the
+    // removal are saved separately: LuCI drops the position of a copy (sections: their priority)
+    // when the same save also removes a section.
     return this.map
       .save(null, true)
       .then(() => {
         uci.clone(config, this.sectiontype, section_id, true, name);
         updateReferences(section_id, name);
+        return this.map.save(null, true);
+      })
+      .then(() => {
         uci.remove(config, section_id);
         return this.map.save(null, true);
       })
       .then(() => {
-        // A new section is created at the end, LuCI cannot move it before it exists. The order of
-        // sections is their priority. The move is saved with the other changes: a staged move is not
-        // reflected in what rpcd returns, the table would show the old order until Apply.
+        // rpcd stores the new position but returns sections without it until Apply: shown here too
         if (next) {
           uci.move(config, name, next, false);
         } else if (previous) {

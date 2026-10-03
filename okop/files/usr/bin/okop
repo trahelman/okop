@@ -779,7 +779,7 @@ duration_to_seconds() {
     local duration="$1"
 
     case "$duration" in
-    "" | *[!0-9ms]* | [ms]* | *[ms]*[0-9ms]) echo 15 ;;
+    "" | *[!0-9ms]* | [ms]* | 0* | *[ms]*[0-9ms]) echo 15 ;;
     *m) echo $((${duration%m} * 60)) ;;
     *s) echo "${duration%s}" ;;
     *) echo "$duration" ;;
@@ -793,18 +793,23 @@ has_fallback_connections() {
 # Keeps every fallback connection group on its first member that responds. sing-box has no such
 # outbound type: a fallback group is a selector, and this switches it through the Clash API.
 fallback_guard() {
-    local stopping=0 clash_api_url clash_api_secret enable_yacd
+    local stopping=0 clash_api_url clash_api_secret sing_box_config_path controller api_failed=0
 
-    clash_api_url="$(get_service_listen_address)"
-    clash_api_url="http://${clash_api_url:-127.0.0.1}:$SB_CLASH_API_CONTROLLER_PORT"
-    # The secret is set on the Clash API only with YACD, see sing_box_configure_experimental
-    config_get_bool enable_yacd "settings" "enable_yacd" 0
-    [ "$enable_yacd" -eq 1 ] && config_get clash_api_secret "settings" "yacd_secret_key"
+    # Read from the generated configuration: computed again here, the address could differ (the LAN
+    # address appearing in between at boot) and the guard would silently do nothing
+    config_get sing_box_config_path "settings" "config_path"
+    controller="$(jq -r '.experimental.clash_api.external_controller // empty' "$sing_box_config_path")"
+    clash_api_secret="$(jq -r '.experimental.clash_api.secret // empty' "$sing_box_config_path")"
+    case "$controller" in
+    0.0.0.0:*) controller="127.0.0.1:${controller#*:}" ;;
+    esac
+    clash_api_url="http://${controller:-127.0.0.1:$SB_CLASH_API_CONTROLLER_PORT}"
 
     trap 'stopping=1' TERM
 
     while [ "$stopping" -eq 0 ]; do
-        config_foreach fallback_guard_check_group "outbound"
+        config_foreach fallback_guard_check_inner_group "outbound"
+        config_foreach fallback_guard_check_outer_group "outbound"
 
         # wait is interrupted by TERM, unlike sleep
         sleep "$FALLBACK_GUARD_TICK" &
@@ -839,12 +844,34 @@ fallback_test_member() {
     fi
 }
 
+has_group_members() {
+    local members member
+    config_get members "$1" "members"
+    for member in $members; do
+        is_connection_group "$(uci -q get "okop.$member.type")" && return 0
+    done
+    return 1
+}
+
+fallback_guard_check_inner_group() {
+    has_group_members "$1" || fallback_guard_check_group "$1"
+}
+
+fallback_guard_check_outer_group() {
+    has_group_members "$1" && fallback_guard_check_group "$1"
+}
+
 fallback_guard_check_group() {
     local group="$1"
 
     local type
     config_get type "$group" "type"
     [ "$type" = "fallback" ] && [ "$stopping" -eq 0 ] || return 0
+    # Unused groups are left out of the sing-box configuration
+    case "$used_connections" in
+    *" $group "*) ;;
+    *) return 0 ;;
+    esac
 
     # Each group is checked at its own interval
     local interval left
@@ -861,9 +888,17 @@ fallback_guard_check_group() {
     config_get members "$group" "members"
     config_get check_url "$group" "check_url" "$CONNECTION_CHECK_URL"
 
-    # No answer means sing-box is restarting or down, nothing can be judged then
+    # No answer means sing-box is restarting or down, nothing can be judged then. Said once, not on
+    # every check: a guard that cannot reach the Clash API does nothing.
     current="$(fallback_clash_api "$clash_api_url/proxies/$group_tag" | jq -r '.now // empty' 2> /dev/null)"
-    [ -n "$current" ] || return 0
+    if [ -z "$current" ]; then
+        [ "$api_failed" -eq 1 ] ||
+            log "Fallback groups are not checked: the Clash API at $clash_api_url does not answer for '$group'" "warn"
+        api_failed=1
+        return 0
+    fi
+    [ "$api_failed" -eq 0 ] || log "The Clash API answers again, fallback groups are checked"
+    api_failed=0
 
     local i=0 current_index=0 current_member=""
     for member in $members; do
@@ -883,12 +918,17 @@ fallback_guard_check_group() {
         if [ "$current_index" -gt 0 ] && [ "$i" -gt "$current_index" ] && [ "$current_fail" -eq 0 ]; then
             break
         fi
+        [ "$stopping" -eq 0 ] || return 0
         fallback_test_member "$group" "$member" "$check_url"
         [ "$i" -eq "$current_index" ] && eval "current_fail=\${fb_${group}__${member}_fail:-0}"
     done
 
-    local target="" target_index=0 current_failed=0 ok fail
+    local target="" target_index=0 current_failed=0 ok fail min_successes="$FALLBACK_MIN_SUCCESSES" checked
     [ "$current_index" -gt 0 ] || current_failed=1
+    # sing-box restores the member chosen before a restart (cache_file), possibly the backup: on the
+    # guard's first check a higher priority member that responds is taken back at once
+    eval "checked=\${fb_${group}_checked:-0}; fb_${group}_checked=1"
+    [ "$checked" -eq 1 ] || min_successes=1
     i=0
     for member in $members; do
         i=$((i + 1))
@@ -896,7 +936,7 @@ fallback_guard_check_group() {
 
         if [ "$i" -lt "$current_index" ]; then
             # A sing-box outbound that just came back may fail again, it is taken back once steady
-            if [ "$ok" -ge "$FALLBACK_MIN_SUCCESSES" ]; then
+            if [ "$ok" -ge "$min_successes" ]; then
                 target="$member"
                 target_index=$i
                 break
@@ -1282,6 +1322,18 @@ add_used_connection() {
 
     local type members member
     config_get type "$outbound" "type"
+
+    # A JSON connection may chain through another one ("detour": "<name>-out")
+    if [ "$type" = "json" ]; then
+        local json tag
+        config_get json "$outbound" "json"
+        for tag in $(echo "$json" | jq -r '.. | objects | .detour? // empty' 2> /dev/null); do
+            member="${tag%-out}"
+            [ "$member" != "$tag" ] && is_connection "$member" && add_used_connection "$member"
+        done
+        return 0
+    fi
+
     is_connection_group "$type" || return 0
     config_get members "$outbound" "members"
     for member in $members; do
@@ -1317,7 +1369,11 @@ check_section_name() {
 # tags that says nothing about which setting is wrong.
 check_connections() {
     config_foreach check_section_connection "section"
-    config_foreach check_connection_members "outbound"
+
+    local outbound
+    for outbound in $(get_used_connections); do
+        is_connection "$outbound" && check_connection_members "$outbound"
+    done
 }
 
 is_connection() {
@@ -1431,6 +1487,8 @@ configure_outbound() {
         local url udp_over_tcp
         config_get url "$outbound" "url"
         config_get udp_over_tcp "$outbound" "udp_over_tcp"
+        # The field is a text area: a link pasted with blank lines around it is accepted by LuCI
+        url="$(echo "$url" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' | head -n 1)"
 
         if [ -z "$url" ]; then
             log "Connection '$outbound' has no link. Aborted." "fatal"
@@ -2086,9 +2144,11 @@ sing_box_additional_inbounds() {
     if [ "$download_lists_via_proxy" -eq 1 ]; then
         local download_outbound
         config_get download_outbound "settings" "download_lists_via_outbound"
-        if ! is_connection "$download_outbound"; then
+        if [ -z "$download_outbound" ]; then
             download_outbound="$(get_first_section_outbound)"
-            log "The connection for downloading lists is not set or does not exist, using '$download_outbound'" "warn"
+        elif ! is_connection "$download_outbound"; then
+            log "The connection '$download_outbound' for downloading lists does not exist, using '$(get_first_section_outbound)'" "warn"
+            download_outbound="$(get_first_section_outbound)"
         fi
         config=$(
             sing_box_cf_add_mixed_inbound_and_route_rule \
@@ -2748,11 +2808,12 @@ show_config() {
         return 1
     fi
 
-    # A JSON outbound may span several lines inside its quotes: everything up to the closing quote is
-    # dropped. A sed range ending at "}" swallowed the rest of the file when the JSON was on one line.
+    # A JSON outbound or a link may span several lines inside its quotes: everything up to the closing
+    # quote is dropped. A sed range ending at "}" swallowed the rest of the file when the JSON was on one
+    # line.
     awk '
         skipping { if ($0 ~ /'\''[[:space:]]*$/) skipping = 0; next }
-        $1 == "option" && ($2 == "json" || $2 == "outbound_json") {
+        $1 == "option" && ($2 == "json" || $2 == "outbound_json" || $2 == "url" || $2 == "proxy_string") {
             print "\toption " $2 " '\''MASKED'\''"
             line = $0
             sub(/^[^'\'']*'\''/, "", line)
@@ -2760,9 +2821,7 @@ show_config() {
             next
         }
         { print }
-    ' "$OKOP_CONFIG" | sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
-        -e 's/\(option url \).*/\1'\''MASKED'\''/g' \
-        -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
+    ' "$OKOP_CONFIG" | sed -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
@@ -3137,11 +3196,12 @@ clash_api() {
     CLASH_URL="$clash_api_controller_address:$SB_CLASH_API_CONTROLLER_PORT"
     TEST_URL="https://www.gstatic.com/generate_204"
 
-    local enable_yacd_wan_access yacd_secret_key auth_header
-    config_get_bool enable_yacd_wan_access "settings" "enable_yacd_wan_access" 0
+    local enable_yacd yacd_secret_key auth_header
+    config_get_bool enable_yacd "settings" "enable_yacd" 0
     config_get yacd_secret_key "settings" "yacd_secret_key"
 
-    if [ "$enable_yacd_wan_access" -eq 1 ]; then
+    # sing-box gets the secret whenever YACD is on, see sing_box_configure_experimental
+    if [ "$enable_yacd" -eq 1 ] && [ -n "$yacd_secret_key" ]; then
         auth_header="Authorization: Bearer $yacd_secret_key"
     else
         auth_header=""

@@ -17,6 +17,9 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
+msgid "%s was not renamed: %s"
+msgstr "%s не переименовано: %s"
+
 msgid "✔ Enabled"
 msgstr "✔ Включено"
 
@@ -40,6 +43,9 @@ msgstr "Имя может содержать только латинские б�
 
 msgid "Active Connections"
 msgstr "Активные соединения"
+
+msgid "Add at least one connection to the group"
+msgstr "Добавьте в группу хотя бы одно подключение"
 
 msgid "Additional marking rules found"
 msgstr "Найдены дополнительные правила маркировки"
@@ -152,6 +158,9 @@ msgstr "Подключения группы. В группе-резерве по
 msgid "Copy"
 msgstr "Копировать"
 
+msgid "Create a connection on the Outbound connections tab first"
+msgstr "Сначала создайте подключение на вкладке «Подключения»"
+
 msgid "Currently unavailable"
 msgstr "Временно недоступно"
 
@@ -160,6 +169,9 @@ msgstr "Дашборд"
 
 msgid "Dashboard currently unavailable"
 msgstr "Дашборд сейчас недоступен"
+
+msgid "Default: 15s for fallback, 3m for fastest"
+msgstr "По умолчанию: 15s для резерва, 3m для самого быстрого"
 
 msgid "Delay in milliseconds before reloading okop after interface UP"
 msgstr "Задержка в миллисекундах перед перезагрузкой Okop после поднятия интерфейса"

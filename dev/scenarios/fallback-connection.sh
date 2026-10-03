@@ -91,6 +91,20 @@ else
     fail "the group did not come back to the primary connection: '$(group_now)'" || result=1
 fi
 
+info "Restarting okop while the group is on the backup, with the primary responding"
+block_primary
+wait_for 60 group_uses backup || fail "baseline: the group did not switch to the backup" || result=1
+unblock_primary
+# sing-box restores the member chosen before the restart
+on_router /etc/init.d/okop restart > /dev/null 2>&1
+sleep 2
+wait_okop
+if wait_for 20 group_uses primary; then
+    pass "after a restart the group is back on the primary at the first check"
+else
+    fail "the group stays on the backup after a restart: '$(group_now)'" || result=1
+fi
+
 info "A VPN interface that is down, with the proxy as the backup"
 on_router sh -c "
     uci set okop.vpn=outbound

@@ -112,7 +112,8 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
     connections.find((connection) => connection['.name'] === name);
 
   // A connection that is only a member of groups is shown inside them, not on a card of its own.
-  // Groups always get a card: a nested selector is still switched by hand.
+  // Groups always get a card: a nested selector is still switched by hand. Connections sing-box does
+  // not have (unused ones, or new ones not applied yet) get none: there is nothing to test or switch.
   const usedBySection = new Set(
     configSections
       .filter(
@@ -130,9 +131,10 @@ export async function getDashboardSections(): Promise<IGetDashboardSectionsRespo
   const data = connections
     .filter(
       (connection) =>
-        usedBySection.has(connection['.name']) ||
-        !members.has(connection['.name']) ||
-        GROUP_TYPES.includes(connection.type as Okop.ConnectionType),
+        findProxy(tagOf(connection['.name'])) &&
+        (usedBySection.has(connection['.name']) ||
+          !members.has(connection['.name']) ||
+          GROUP_TYPES.includes(connection.type as Okop.ConnectionType)),
     )
     .map((connection): Okop.OutboundGroup => {
       const name = connection['.name'];

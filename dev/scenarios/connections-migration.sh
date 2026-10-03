@@ -75,6 +75,64 @@ else
     fail "the mixed proxy does not work" || result=1
 fi
 
+info "Hand-written old configs: an anonymous section with spare links commented out, a JSON outbound"
+info "chaining through another section, a section saved again by the LuCI of 0.6 after the conversion"
+on_router sh -c '
+    /etc/init.d/okop stop
+    rm -f /etc/okop/okop-before-connections.backup
+    # The settings of the dev fixture, without lists downloaded through a connection
+    sed -n "/^config settings/,/^\$/p" /root/fixtures/proxy.uci | grep -v download_lists_via > /etc/config/okop
+    cat >> /etc/config/okop << EOF
+config section
+	option connection_type proxy
+	option proxy_config_type url
+	option proxy_string "
+ss://YWVzLTEyOC1nY206b2tvcC1kZXY=@172.31.77.3:8388#first
+// socks5://172.31.77.3:1080#spare
+// a note"
+	option user_domain_list_type dynamic
+	list user_domains example.com
+
+config section chain
+	option connection_type proxy
+	option proxy_config_type outbound
+	option outbound_json "{\"type\":\"socks\",\"server\":\"172.31.77.3\",\"server_port\":1080,\"detour\":\"vpn-out\"}"
+	option user_domain_list_type dynamic
+	list user_domains wikipedia.org
+
+config section vpn
+	option connection_type proxy
+	option proxy_config_type url
+	option proxy_string "ss://YWVzLTEyOC1nY206b2tvcC1kZXY=@172.31.77.3:8388#vpn"
+
+config outbound kept
+	option type url
+	option url "socks5://172.31.77.3:1080#kept"
+
+config section resaved
+	option connection_type proxy
+	option proxy_config_type url
+	option proxy_string ""
+	option outbound kept
+EOF
+    sh /opt/okop/etc/uci-defaults/60_okop_outbounds' > /dev/null 2>&1
+
+anonymous="$(on_router sh -c "uci -X show okop | sed -n \"s/^okop\\.\\(cfg[0-9a-f]*\\)=section\$/\\1/p\"")"
+expect "an anonymous section gets a connection" "$(opt "${anonymous}_out.url")" "ss://YWVzLTEyOC1nY206b2tvcC1kZXY=@172.31.77.3:8388#first"
+expect "a commented spare link becomes a spare connection" "$(opt "${anonymous}_spare_1.url")" "socks5://172.31.77.3:1080#spare"
+expect "the JSON detour follows the renamed tag" "$(on_router sh -c 'uci get okop.chain_out.json | jq -r .detour')" "vpn_out-out"
+expect "a section saved again by old LuCI keeps its connection" "$(opt resaved.outbound) $(opt resaved.connection_type) $(opt kept_2)" "kept outbound "
+expect "the configuration before the conversion is kept" "$(on_router sh -c 'grep -c proxy_string /etc/okop/okop-before-connections.backup')" "3"
+
+on_router /etc/init.d/okop start > /dev/null 2>&1
+sleep 2
+wait_okop
+if wait_for 30 client_gets_fakeip wikipedia.org && singbox_stable; then
+    pass "okop starts with a JSON connection chaining through another one"
+else
+    fail "okop did not start: $(on_router sh -c 'logread -e okop | grep fatal | tail -1')" || result=1
+fi
+
 before="$(on_router uci export okop)"
 on_router /etc/init.d/okop restart > /dev/null 2>&1
 sleep 2
