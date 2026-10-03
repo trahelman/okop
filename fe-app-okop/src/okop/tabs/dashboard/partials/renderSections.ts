@@ -4,7 +4,7 @@ interface IRenderSectionsProps {
   loading: boolean;
   failed: boolean;
   section: Okop.OutboundGroup;
-  onTestLatency: (tag: string) => void;
+  onTestLatency: () => void;
   onChooseOutbound: (selector: string, tag: string) => void;
   latencyFetching: boolean;
 }
@@ -34,21 +34,15 @@ export function renderDefaultState({
   onTestLatency,
   latencyFetching,
 }: IRenderSectionsProps) {
-  function testLatency() {
-    if (section.withTagSelect) {
-      return onTestLatency(section.code);
-    }
-
-    if (section.outbounds.length) {
-      return onTestLatency(section.outbounds[0].code);
-    }
-  }
-
   // A fallback group switches by itself, its members are only shown
   const selectable = section.selectable ?? section.withTagSelect;
 
   function renderOutbound(outbound: Okop.Outbound) {
     function getLatencyClass() {
+      if (outbound.unreachable) {
+        return 'pdk_dashboard-page__outbound-grid__item__latency--red';
+      }
+
       if (!outbound.latency) {
         return 'pdk_dashboard-page__outbound-grid__item__latency--empty';
       }
@@ -64,11 +58,30 @@ export function renderDefaultState({
       return 'pdk_dashboard-page__outbound-grid__item__latency--red';
     }
 
+    function getStateClass() {
+      if (!outbound.selected) {
+        return '';
+      }
+
+      return outbound.unreachable
+        ? 'pdk_dashboard-page__outbound-grid__item--unreachable'
+        : 'pdk_dashboard-page__outbound-grid__item--active';
+    }
+
+    function getLatencyText() {
+      if (outbound.unreachable) {
+        return _('Unreachable');
+      }
+
+      return outbound.latency ? `${outbound.latency}ms` : 'N/A';
+    }
+
     return E(
       'div',
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? 'pdk_dashboard-page__outbound-grid__item--active' : ''} ${selectable ? 'pdk_dashboard-page__outbound-grid__item--selectable' : ''}`,
-        click: () => selectable && onChooseOutbound(section.code, outbound.code),
+        class: `pdk_dashboard-page__outbound-grid__item ${getStateClass()} ${selectable ? 'pdk_dashboard-page__outbound-grid__item--selectable' : ''}`,
+        click: () =>
+          selectable && onChooseOutbound(section.code, outbound.code),
       },
       [
         E('b', {}, [outbound.displayName]),
@@ -76,11 +89,7 @@ export function renderDefaultState({
           E('div', { class: 'pdk_dashboard-page__outbound-grid__item__type' }, [
             outbound.type,
           ]),
-          E(
-            'div',
-            { class: getLatencyClass() },
-            outbound.latency ? `${outbound.latency}ms` : 'N/A',
-          ),
+          E('div', { class: getLatencyClass() }, getLatencyText()),
         ]),
       ],
     );
@@ -102,7 +111,7 @@ export function renderDefaultState({
             'button',
             {
               class: 'btn dashboard-sections-grid-item-test-latency',
-              click: () => testLatency(),
+              click: () => onTestLatency(),
             },
             _('Test latency'),
           ),

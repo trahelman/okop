@@ -881,6 +881,9 @@ msgstr "неизвестно"
 msgid "Unknown error"
 msgstr "Неизвестная ошибка"
 
+msgid "Unreachable"
+msgstr "Нет связи"
+
 msgid "Uplink"
 msgstr "Исходящий"
 

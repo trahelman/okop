@@ -1756,17 +1756,12 @@ function renderDefaultState({
   onTestLatency,
   latencyFetching
 }) {
-  function testLatency() {
-    if (section.withTagSelect) {
-      return onTestLatency(section.code);
-    }
-    if (section.outbounds.length) {
-      return onTestLatency(section.outbounds[0].code);
-    }
-  }
   const selectable = section.selectable ?? section.withTagSelect;
   function renderOutbound(outbound) {
     function getLatencyClass() {
+      if (outbound.unreachable) {
+        return "pdk_dashboard-page__outbound-grid__item__latency--red";
+      }
       if (!outbound.latency) {
         return "pdk_dashboard-page__outbound-grid__item__latency--empty";
       }
@@ -1778,10 +1773,22 @@ function renderDefaultState({
       }
       return "pdk_dashboard-page__outbound-grid__item__latency--red";
     }
+    function getStateClass() {
+      if (!outbound.selected) {
+        return "";
+      }
+      return outbound.unreachable ? "pdk_dashboard-page__outbound-grid__item--unreachable" : "pdk_dashboard-page__outbound-grid__item--active";
+    }
+    function getLatencyText() {
+      if (outbound.unreachable) {
+        return _("Unreachable");
+      }
+      return outbound.latency ? `${outbound.latency}ms` : "N/A";
+    }
     return E(
       "div",
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? "pdk_dashboard-page__outbound-grid__item--active" : ""} ${selectable ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
+        class: `pdk_dashboard-page__outbound-grid__item ${getStateClass()} ${selectable ? "pdk_dashboard-page__outbound-grid__item--selectable" : ""}`,
         click: () => selectable && onChooseOutbound(section.code, outbound.code)
       },
       [
@@ -1790,11 +1797,7 @@ function renderDefaultState({
           E("div", { class: "pdk_dashboard-page__outbound-grid__item__type" }, [
             outbound.type
           ]),
-          E(
-            "div",
-            { class: getLatencyClass() },
-            outbound.latency ? `${outbound.latency}ms` : "N/A"
-          )
+          E("div", { class: getLatencyClass() }, getLatencyText())
         ])
       ]
     );
@@ -1813,7 +1816,7 @@ function renderDefaultState({
         "button",
         {
           class: "btn dashboard-sections-grid-item-test-latency",
-          click: () => testLatency()
+          click: () => onTestLatency()
         },
         _("Test latency")
       )
@@ -1991,7 +1994,21 @@ async function fetchServicesInfo() {
   }
 }
 
+// src/okop/tabs/dashboard/markUnreachable.ts
+function markUnreachable(groups, tested) {
+  return groups.map((group) => ({
+    ...group,
+    outbounds: group.outbounds.map((outbound) => ({
+      ...outbound,
+      unreachable: tested.has(outbound.code) && !outbound.latency
+    }))
+  }));
+}
+
 // src/okop/tabs/dashboard/initController.ts
+var LATENCY_TEST_INTERVAL = 6e4;
+var testedOutbounds = /* @__PURE__ */ new Set();
+var latencyTestTimer;
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
   store.set({
@@ -2006,10 +2023,27 @@ async function fetchDashboardSections() {
   }
   store.set({
     sectionsWidget: {
-      latencyFetching: false,
+      // A test may still be running, it clears the flag itself
+      latencyFetching: store.get().sectionsWidget.latencyFetching,
       loading: false,
       failed: !success,
-      data
+      data: markUnreachable(data, testedOutbounds)
+    }
+  });
+}
+async function testSectionLatency(section) {
+  if (section.withTagSelect) {
+    await OkopShellMethods.getClashApiGroupLatency(section.code);
+  } else if (section.outbounds.length) {
+    await OkopShellMethods.getClashApiProxyLatency(section.outbounds[0].code);
+  }
+  section.outbounds.forEach((outbound) => testedOutbounds.add(outbound.code));
+}
+function setLatencyFetching(latencyFetching) {
+  store.set({
+    sectionsWidget: {
+      ...store.get().sectionsWidget,
+      latencyFetching
     }
   });
 }
@@ -2093,37 +2127,25 @@ async function handleChooseOutbound(selector, tag) {
   await OkopShellMethods.setClashApiGroupProxy(selector, tag);
   await fetchDashboardSections();
 }
-async function handleTestGroupLatency(tag) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true
-    }
-  });
-  await OkopShellMethods.getClashApiGroupLatency(tag);
+async function handleTestLatency(section) {
+  setLatencyFetching(true);
+  await testSectionLatency(section);
   await fetchDashboardSections();
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false
-    }
-  });
+  setLatencyFetching(false);
 }
-async function handleTestProxyLatency(tag) {
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: true
-    }
-  });
-  await OkopShellMethods.getClashApiProxyLatency(tag);
+async function testAllLatency(showProgress) {
+  const sections = store.get().sectionsWidget.data;
+  if (showProgress) {
+    setLatencyFetching(true);
+  }
+  await Promise.all(sections.map((section) => testSectionLatency(section)));
+  if (!latencyTestTimer) {
+    return;
+  }
   await fetchDashboardSections();
-  store.set({
-    sectionsWidget: {
-      ...store.get().sectionsWidget,
-      latencyFetching: false
-    }
-  });
+  if (showProgress) {
+    setLatencyFetching(false);
+  }
 }
 async function renderSectionsWidget() {
   logger.debug("[DASHBOARD]", "renderSectionsWidget");
@@ -2155,12 +2177,7 @@ async function renderSectionsWidget() {
       failed: sectionsWidget.failed,
       section,
       latencyFetching: sectionsWidget.latencyFetching,
-      onTestLatency: (tag) => {
-        if (section.withTagSelect) {
-          return handleTestGroupLatency(tag);
-        }
-        return handleTestProxyLatency(tag);
-      },
+      onTestLatency: () => handleTestLatency(section),
       onChooseOutbound: (selector, tag) => {
         handleChooseOutbound(selector, tag);
       }
@@ -2311,11 +2328,19 @@ async function onPageMount() {
   onPageUnmount();
   store.subscribe(onStoreUpdate);
   await fetchDashboardSections();
+  latencyTestTimer = setInterval(
+    () => testAllLatency(false),
+    LATENCY_TEST_INTERVAL
+  );
+  testAllLatency(true);
   await fetchServicesInfo();
   await connectToClashSockets();
 }
 function onPageUnmount() {
   store.unsubscribe(onStoreUpdate);
+  clearInterval(latencyTestTimer);
+  latencyTestTimer = void 0;
+  testedOutbounds.clear();
   store.reset([
     "bandwidthWidget",
     "trafficTotalWidget",
@@ -2463,6 +2488,10 @@ var styles = `
 
 .pdk_dashboard-page__outbound-grid__item--active {
     border-color: var(--success-color-medium, green);
+}
+
+.pdk_dashboard-page__outbound-grid__item--unreachable {
+    border-color: var(--error-color-medium, red);
 }
 
 .pdk_dashboard-page__outbound-grid__item__footer {
