@@ -27,10 +27,12 @@ on_router sh -c "
     uci set okop.settings.yacd_secret_key=S3CRETKEY
     uci set okop.settings.dns_type=doh
     uci set okop.settings.dns_server=dns.adguard-dns.com/dns-query/abc123doh
+    uci set okop.socks=outbound
+    uci set okop.socks.type=json
+    uci set okop.socks.json='{\"type\":\"socks\",\"server\":\"5.6.7.8\",\"server_port\":1080,\"username\":\"socksuser123\",\"password\":\"sockspass123\"}'
     uci set okop.vpn=section
-    uci set okop.vpn.connection_type=proxy
-    uci set okop.vpn.proxy_config_type=outbound
-    uci set okop.vpn.outbound_json='{\"type\":\"socks\",\"server\":\"5.6.7.8\",\"server_port\":1080,\"username\":\"socksuser123\",\"password\":\"sockspass123\"}'
+    uci set okop.vpn.connection_type=outbound
+    uci set okop.vpn.outbound=socks
     uci add_list okop.vpn.user_domains=example.net
     uci set okop.vpn.user_domain_list_type=dynamic
     uci commit okop

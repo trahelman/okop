@@ -1,4 +1,4 @@
-# VPN section bound to an interface that does not exist, lists are downloaded through it
+# A section routed through a VPN interface that does not exist, lists are downloaded through it
 config settings 'settings'
 	option dns_type 'udp'
 	# Not 1.1.1.1: UDP/53 to it is blackholed on some Docker hosts, which made DNS flaky
@@ -12,18 +12,22 @@ config settings 'settings'
 	option disable_quic '0'
 	option update_interval '1d'
 	option download_lists_via_proxy '1'
-	option download_lists_via_proxy_section 'main'
+	option download_lists_via_outbound 'vpn'
 	option dont_touch_dhcp '0'
 	option config_path '/etc/sing-box/config.json'
 	option cache_path '/tmp/sing-box/cache.db'
 	option log_level 'info'
 	option exclude_ntp '0'
 
-config section 'main'
-	option connection_type 'vpn'
+config outbound 'vpn'
+	option type 'interface'
 	option interface 'wg0'
 	option domain_resolver_enabled '1'
 	option domain_resolver_dns_type 'udp'
 	option domain_resolver_dns_server '8.8.8.8'
+
+config section 'main'
+	option connection_type 'outbound'
+	option outbound 'vpn'
 	list community_lists 'youtube'
 	list community_lists 'discord'

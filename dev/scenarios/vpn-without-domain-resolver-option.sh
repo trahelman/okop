@@ -1,6 +1,6 @@
 #!/bin/sh
 # shellcheck shell=dash
-# A VPN section where "Domain Resolver" was never saved has no domain_resolver_enabled option. It was
+# A VPN connection where "Domain Resolver" was never saved has no domain_resolver_enabled option. It was
 # compared as a number, and every start wrote "ash: out of range" to the system log.
 # Expected: okop starts without shell errors in the log, the resolver stays off.
 
@@ -25,7 +25,7 @@ result=0
 info "VPN section without the domain resolver option"
 on_router sh -c "
     cp /root/fixtures/vpn-missing.uci /etc/config/okop
-    uci -q delete okop.main.domain_resolver_enabled
+    uci -q delete okop.vpn.domain_resolver_enabled
     uci commit okop
     logger -t okop-scenario $MARKER
     /etc/init.d/okop restart" > /dev/null 2>&1
@@ -39,7 +39,7 @@ else
     fail "$errors shell error(s) in the log: $(log_since_restart | grep "ash: .*out of range" | tail -1)" || result=1
 fi
 
-if on_router jq -e '.outbounds[] | select(.tag == "main-out") | has("domain_resolver") | not' /etc/sing-box/config.json > /dev/null; then
+if on_router jq -e '.outbounds[] | select(.tag == "vpn-out") | has("domain_resolver") | not' /etc/sing-box/config.json > /dev/null; then
     pass "the domain resolver is off"
 else
     fail "the VPN outbound has a domain resolver" || result=1

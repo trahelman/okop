@@ -18,8 +18,7 @@ outbound_field() {
 
 apply_proxy_string() {
     on_router sh -c "
-        uci set okop.main.proxy_config_type=url
-        uci set okop.main.proxy_string='$1'
+        uci set okop.dev_proxy.url='$1'
         uci commit okop
         /etc/init.d/okop restart" > /dev/null 2>&1
     wait_okop

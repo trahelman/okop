@@ -66,8 +66,8 @@ check_clean_after_failure() {
 load_fixture proxy
 info "Starting with a mixed proxy port sing-box cannot parse"
 on_router sh -c "
-    uci set okop.main.mixed_proxy_enabled=1
-    uci set okop.main.mixed_proxy_port=8080x
+    uci set okop.dev_proxy.mixed_proxy_enabled=1
+    uci set okop.dev_proxy.mixed_proxy_port=8080x
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1
 sleep 20
@@ -79,24 +79,26 @@ else
     check_clean_after_failure "invalid mixed proxy port" || result=1
 fi
 
-# A second proxy section without a link. check_requirements is satisfied by any section with an
-# outbound, so the start gets past the nft rules and aborts while generating the outbounds.
+# A second connection without a link. check_requirements is satisfied by any connection, so the start
+# gets past the nft rules and aborts while generating the outbounds.
 load_fixture proxy
-info "Starting with a second proxy section without a proxy link"
+info "Starting with a second connection without a proxy link"
 on_router sh -c "
+    uci set okop.broken_out=outbound
+    uci set okop.broken_out.type=url
     uci set okop.broken=section
-    uci set okop.broken.connection_type=proxy
-    uci set okop.broken.proxy_config_type=url
+    uci set okop.broken.connection_type=outbound
+    uci set okop.broken.outbound=broken_out
     uci add_list okop.broken.user_domains=example.org
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1
 sleep 20
 
 if on_router pidof sing-box > /dev/null; then
-    fail "baseline: sing-box is running with a section without a proxy link" || result=1
+    fail "baseline: sing-box is running with a connection without a proxy link" || result=1
     show_state
 else
-    check_clean_after_failure "section without a proxy link" || result=1
+    check_clean_after_failure "connection without a proxy link" || result=1
 fi
 
 # A config_path whose parent directory does not exist

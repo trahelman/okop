@@ -71,6 +71,7 @@ define Package/okop/install
 
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/etc/uci-defaults/50_okop_migrate_podkop $(1)/etc/uci-defaults/50_okop_migrate_podkop
+	$(INSTALL_BIN) ./files/etc/uci-defaults/60_okop_outbounds $(1)/etc/uci-defaults/60_okop_outbounds
 
 	sed -i -e 's/__COMPILED_VERSION_VARIABLE__/$(PKG_VERSION)/g' $(1)/usr/lib/okop/constants.sh
 endef

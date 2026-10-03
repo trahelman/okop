@@ -1,0 +1,11 @@
+#!/bin/sh
+# Moves connection settings out of sections into connections, after 50_okop_migrate_podkop has brought
+# a Podkop configuration over. okop does the same on every start, this makes the new layout visible in
+# LuCI right after an upgrade.
+
+[ -f /etc/config/okop ] || exit 0
+
+. /usr/lib/okop/migrate_outbounds.sh
+migrate_sections_to_outbounds
+
+exit 0

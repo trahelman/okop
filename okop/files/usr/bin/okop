@@ -20,6 +20,7 @@ check_required_file "$OKOP_LIB/sing_box_config_manager.sh"
 check_required_file "$OKOP_LIB/sing_box_config_facade.sh"
 check_required_file "$OKOP_LIB/logging.sh"
 check_required_file "$OKOP_LIB/rulesets.sh"
+check_required_file "$OKOP_LIB/migrate_outbounds.sh"
 . /lib/functions.sh
 . /lib/config/uci.sh
 . /lib/functions/network.sh
@@ -30,6 +31,7 @@ check_required_file "$OKOP_LIB/rulesets.sh"
 . "$OKOP_LIB/sing_box_config_facade.sh"
 . "$OKOP_LIB/logging.sh"
 . "$OKOP_LIB/rulesets.sh"
+. "$OKOP_LIB/migrate_outbounds.sh"
 
 config_load "$OKOP_CONFIG"
 
@@ -75,36 +77,16 @@ check_requirements() {
         log "Detected https-dns-proxy in DHCP config. Edit /etc/config/dhcp" "error"
     fi
 
-    if has_outbound_section; then
-        log "Outbound section found" "debug"
+    if has_outbound; then
+        log "Connection found" "debug"
     else
-        log "Outbound section not found. Please check your configuration file (missing proxy_string, selector_proxy_links, urltest_proxy_links, outbound_json, or interface). Aborted." "error"
+        log "No connection is configured. Add one on the Connections tab. Aborted." "error"
         exit 1
     fi
 }
 
-_check_outbound_section() {
-    local section="$1"
-    local proxy_string interface outbound_json urltest_proxy_links
-
-    config_get proxy_string "$section" "proxy_string"
-    config_get selector_proxy_links "$section" "selector_proxy_links"
-    config_get urltest_proxy_links "$section" "urltest_proxy_links"
-    config_get outbound_json "$section" "outbound_json"
-    config_get interface "$section" "interface"
-
-    if [ -n "$proxy_string" ] || [ -n "$selector_proxy_links" ] || [ -n "$urltest_proxy_links" ] ||
-        [ -n "$outbound_json" ] || [ -n "$interface" ]; then
-        section_exists=0
-    fi
-}
-
-has_outbound_section() {
-    local section_exists=1
-
-    config_foreach _check_outbound_section "section"
-
-    return $section_exists
+has_outbound() {
+    uci -q show okop | grep -q '^okop\.[^.]*=outbound$'
 }
 
 # start, stop, reload and restart run one at a time, in the order they arrive. Without this a stop arriving
@@ -119,12 +101,14 @@ okop_lock() {
 start_main() {
     log "Starting okop"
 
-    check_requirements
-
     migration
+
+    check_requirements
 
     config_foreach process_validate_service "section"
     config_foreach check_section_name "section"
+    config_foreach check_section_name "outbound"
+    check_connections
 
     br_netfilter_disable
 
@@ -262,6 +246,7 @@ stop_main() {
 start() {
     # A guard of a previous start must not reconfigure dnsmasq concurrently
     dns_guard_stop
+    fallback_guard_stop
 
     # After a reboot or a crash dnsmasq may still point to sing-box that is not running yet
     dnsmasq_restore
@@ -269,10 +254,12 @@ start() {
     start_main
 
     dns_guard_start
+    fallback_guard_start
 }
 
 stop() {
     dns_guard_stop
+    fallback_guard_stop
 
     dnsmasq_restore
 
@@ -286,12 +273,14 @@ reload() {
     # from the lists was routed although every status check reported a healthy okop. Restoring
     # before stop_main also keeps the LAN resolving while sing-box is down.
     dns_guard_stop
+    fallback_guard_stop
     dnsmasq_restore
 
     stop_main
     start_main
 
     dns_guard_start
+    fallback_guard_start
 }
 
 restart() {
@@ -301,8 +290,13 @@ restart() {
 }
 
 # Migrations and validation funcs
+# A configuration in the layout of okop 0.6 and earlier (connections inside sections) is converted, e.g.
+# one restored from a backup. uci-defaults does the same on upgrade.
 migration() {
-    :
+    if migrate_sections_to_outbounds; then
+        log "The configuration was converted to connections, see the Connections tab"
+        config_load "$OKOP_CONFIG"
+    fi
 }
 
 validate_service() {
@@ -779,6 +773,167 @@ dns_guard_stop() {
     rm -f "$DNS_GUARD_PID_FILE"
 }
 
+# Converts a check interval of the form 15s, 1m into seconds
+duration_to_seconds() {
+    local duration="$1"
+
+    case "$duration" in
+    *m) echo $((${duration%m} * 60)) ;;
+    *s) echo "${duration%s}" ;;
+    *) echo "$duration" ;;
+    esac
+}
+
+has_fallback_connections() {
+    uci -q show okop | grep -q "^okop\.[^.]*\.type='fallback'$"
+}
+
+# Keeps every fallback connection group on its first member that responds. sing-box has no such
+# outbound type: a fallback group is a selector, and this switches it through the Clash API.
+fallback_guard() {
+    local stopping=0 clash_api_url clash_api_secret enable_yacd
+
+    clash_api_url="$(get_service_listen_address)"
+    clash_api_url="http://${clash_api_url:-127.0.0.1}:$SB_CLASH_API_CONTROLLER_PORT"
+    # The secret is set on the Clash API only with YACD, see sing_box_configure_experimental
+    config_get_bool enable_yacd "settings" "enable_yacd" 0
+    [ "$enable_yacd" -eq 1 ] && config_get clash_api_secret "settings" "yacd_secret_key"
+
+    trap 'stopping=1' TERM
+
+    while [ "$stopping" -eq 0 ]; do
+        config_foreach fallback_guard_check_group "outbound"
+
+        # wait is interrupted by TERM, unlike sleep
+        sleep "$FALLBACK_GUARD_TICK" &
+        wait $!
+    done
+}
+
+fallback_clash_api() {
+    curl -s -m 10 -H "Authorization: Bearer $clash_api_secret" "$@"
+}
+
+# Checks one member and counts its successes and failures in a row. Group and member names are UCI
+# section names (letters, digits, "_"), so they are safe in variable names.
+fallback_test_member() {
+    local group="$1"
+    local member="$2"
+    local check_url="$3"
+
+    local delay state="fb_${group}__${member}"
+    delay="$(fallback_clash_api -G "$clash_api_url/proxies/$(get_outbound_tag_by_section "$member")/delay" \
+        --data-urlencode "url=$check_url" --data-urlencode "timeout=$FALLBACK_TEST_TIMEOUT" |
+        jq -r '.delay // 0' 2> /dev/null)"
+
+    case "$delay" in
+    "" | *[!0-9]*) delay=0 ;;
+    esac
+
+    if [ "$delay" -gt 0 ]; then
+        eval "${state}_ok=\$((\${${state}_ok:-0} + 1)); ${state}_fail=0"
+    else
+        eval "${state}_fail=\$((\${${state}_fail:-0} + 1)); ${state}_ok=0"
+    fi
+}
+
+fallback_guard_check_group() {
+    local group="$1"
+
+    local type
+    config_get type "$group" "type"
+    [ "$type" = "fallback" ] || return 0
+
+    # Each group is checked at its own interval
+    local interval left
+    config_get interval "$group" "check_interval" "15s"
+    eval "left=\${fb_${group}_left:-0}"
+    if [ "$left" -gt 0 ]; then
+        eval "fb_${group}_left=$((left - FALLBACK_GUARD_TICK))"
+        return 0
+    fi
+    eval "fb_${group}_left=$(($(duration_to_seconds "$interval") - FALLBACK_GUARD_TICK))"
+
+    local group_tag current members member check_url
+    group_tag="$(get_outbound_tag_by_section "$group")"
+    config_get members "$group" "members"
+    config_get check_url "$group" "check_url" "$CONNECTION_CHECK_URL"
+
+    # No answer means sing-box is restarting or down, nothing can be judged then
+    current="$(fallback_clash_api "$clash_api_url/proxies/$group_tag" | jq -r '.now // empty' 2> /dev/null)"
+    [ -n "$current" ] || return 0
+
+    local i=0 current_index=0 current_member=""
+    for member in $members; do
+        i=$((i + 1))
+        if [ "$(get_outbound_tag_by_section "$member")" = "$current" ]; then
+            current_index=$i
+            current_member="$member"
+        fi
+    done
+
+    # Members before the current one are checked to come back to them, members after it only while
+    # the current one fails
+    local current_fail=0
+    i=0
+    for member in $members; do
+        i=$((i + 1))
+        if [ "$current_index" -gt 0 ] && [ "$i" -gt "$current_index" ] && [ "$current_fail" -eq 0 ]; then
+            break
+        fi
+        fallback_test_member "$group" "$member" "$check_url"
+        [ "$i" -eq "$current_index" ] && eval "current_fail=\${fb_${group}__${member}_fail:-0}"
+    done
+
+    local target="" ok fail
+    i=0
+    for member in $members; do
+        i=$((i + 1))
+        eval "ok=\${fb_${group}__${member}_ok:-0}; fail=\${fb_${group}__${member}_fail:-0}"
+
+        if [ "$i" -lt "$current_index" ]; then
+            # A sing-box outbound that just came back may fail again, it is taken back once steady
+            if [ "$ok" -ge "$FALLBACK_MIN_SUCCESSES" ]; then
+                target="$member"
+                break
+            fi
+        elif [ "$i" -eq "$current_index" ]; then
+            [ "$fail" -lt "$FALLBACK_MAX_FAILURES" ] && break
+        elif [ "$ok" -ge 1 ]; then
+            target="$member"
+            break
+        fi
+    done
+
+    [ -n "$target" ] && [ "$target" != "$current_member" ] || return 0
+
+    if fallback_clash_api -X PUT "$clash_api_url/proxies/$group_tag" \
+        --data-raw "{\"name\":\"$(get_outbound_tag_by_section "$target")\"}" > /dev/null; then
+        if [ -n "$current_member" ] && [ "$current_index" -lt "$i" ]; then
+            log "Connection '$group': '$current_member' does not respond, switched to '$target'" "warn"
+        else
+            log "Connection '$group': '$target' responds again, switched back to it"
+        fi
+    fi
+}
+
+fallback_guard_start() {
+    fallback_guard_stop
+    has_fallback_connections || return 0
+
+    run_detached fallback_guard
+    echo $! > "$FALLBACK_GUARD_PID_FILE"
+    log "Started the fallback guard" "debug"
+}
+
+fallback_guard_stop() {
+    if okop_background_job_running "$FALLBACK_GUARD_PID_FILE"; then
+        kill "$(cat "$FALLBACK_GUARD_PID_FILE")" 2> /dev/null
+        log "Stopped the fallback guard" "debug"
+    fi
+    rm -f "$FALLBACK_GUARD_PID_FILE"
+}
+
 add_cron_job() {
     local section="$1"
 
@@ -1042,25 +1197,105 @@ sing_box_configure_outbounds() {
 
     config=$(sing_box_cm_add_direct_outbound "$config" "$SB_DIRECT_OUTBOUND_TAG")
 
-    config_foreach generate_for_section "section" configure_outbound_handler
+    config_foreach generate_for_section "outbound" configure_outbound
 }
 
-# Section names become sing-box tags: "direct" gives direct-out and "service" gives service-mixed-in,
-# which okop uses itself, and sing-box rejects duplicate tags. LuCI refuses these names, this covers
-# configs edited by hand.
+# Section and connection names become sing-box tags: "direct" gives direct-out and "service" gives
+# service-mixed-in, which okop uses itself, and sing-box rejects duplicate tags. LuCI refuses these names,
+# this covers configs edited by hand.
 check_section_name() {
     local section="$1"
 
     case "$section" in
     direct | service)
-        log "Section name '$section' is reserved, rename the section. Aborted." "fatal"
+        log "The name '$section' is reserved, rename it. Aborted." "fatal"
         exit 1
         ;;
     esac
 }
 
-# Runs a per-section step of the config generation and stops naming the section when the step broke the
-# config: a jq error anywhere empties it, and the start would otherwise only report an invalid config
+# Every reference must lead to a connection: a section to its connection, a group to its members, and
+# groups must not contain themselves. sing-box would reject such a configuration with a message about
+# tags that says nothing about which setting is wrong.
+check_connections() {
+    config_foreach check_section_connection "section"
+    config_foreach check_connection_members "outbound"
+}
+
+is_connection() {
+    [ "$(uci -q get "okop.$1")" = "outbound" ]
+}
+
+check_section_connection() {
+    local section="$1"
+
+    local connection_type outbound
+    config_get connection_type "$section" "connection_type"
+    [ "$connection_type" = "outbound" ] || return 0
+
+    config_get outbound "$section" "outbound"
+    if [ -z "$outbound" ]; then
+        log "Section '$section' has no connection selected. Aborted." "fatal"
+        exit 1
+    fi
+    if ! is_connection "$outbound"; then
+        log "Section '$section' uses the connection '$outbound', which does not exist. Aborted." "fatal"
+        exit 1
+    fi
+}
+
+is_connection_group() {
+    case "$1" in
+    fallback | urltest | selector) return 0 ;;
+    *) return 1 ;;
+    esac
+}
+
+check_connection_members() {
+    local outbound="$1"
+
+    local type members
+    config_get type "$outbound" "type"
+    is_connection_group "$type" || return 0
+
+    config_get members "$outbound" "members"
+    if [ -z "$members" ]; then
+        log "Connection group '$outbound' has no members. Aborted." "fatal"
+        exit 1
+    fi
+
+    check_connection_cycle "$outbound" ""
+}
+
+check_connection_cycle() {
+    local outbound="$1"
+    local path="$2"
+
+    case " $path " in
+    *" $outbound "*)
+        log "Connection groups contain each other: ${path# } $outbound. Aborted." "fatal"
+        exit 1
+        ;;
+    esac
+
+    if ! is_connection "$outbound"; then
+        log "Connection group '${path##* }' contains '$outbound', which is not a connection. Aborted." "fatal"
+        exit 1
+    fi
+
+    local type members member
+    config_get type "$outbound" "type"
+    is_connection_group "$type" || return 0
+
+    config_get members "$outbound" "members"
+    for member in $members; do
+        check_connection_cycle "$member" "$path $outbound"
+    done
+}
+
+# Runs a per-section or per-connection step of the config generation and stops naming it when the step
+# broke the config: a jq error anywhere empties it, and the start would otherwise only report an invalid
+# config
 generate_for_section() {
     local section="$1"
     local step="$2"
@@ -1068,150 +1303,105 @@ generate_for_section() {
     "$step" "$section"
 
     if [ -z "$config" ]; then
-        log "Section '$section': its settings could not be turned into a sing-box configuration ($step). Check the proxy link, ports and JSON of this section. Aborted." "fatal"
+        log "'$section': its settings could not be turned into a sing-box configuration ($step). Check its proxy link, ports and JSON. Aborted." "fatal"
         exit 1
     fi
 }
 
-configure_outbound_handler() {
-    local section="$1"
+# Tags of the members of a connection group, as a JSON array
+connection_member_tags() {
+    local outbound="$1"
 
-    local connection_type
-    config_get connection_type "$section" "connection_type"
-    case "$connection_type" in
-    proxy)
-        log "Configuring outbound in proxy connection type for the $section section"
-        local proxy_config_type
-        config_get proxy_config_type "$section" "proxy_config_type"
+    local members member tags=""
+    config_get members "$outbound" "members"
+    for member in $members; do
+        tags="${tags:+$tags,}$(get_outbound_tag_by_section "$member")"
+    done
 
-        case "$proxy_config_type" in
-        url)
-            log "Detected proxy configuration type: url" "debug"
-            local proxy_string udp_over_tcp
-            config_get proxy_string "$section" "proxy_string"
-            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
+    comma_string_to_json_array "$tags"
+}
 
-            if [ -z "$proxy_string" ]; then
-                log "Proxy string is not set. Aborted." "fatal"
-                exit 1
-            fi
-            config=$(sing_box_cf_add_proxy_outbound "$config" "$section" "$proxy_string" "$udp_over_tcp")
-            ;;
-        outbound)
-            log "Detected proxy configuration type: outbound" "debug"
-            local json_outbound
-            config_get json_outbound "$section" "outbound_json"
-            config=$(sing_box_cf_add_json_outbound "$config" "$section" "$json_outbound")
-            ;;
-        selector)
-            log "Detected proxy configuration type: selector" "debug"
-            local selector_proxy_links udp_over_tcp i outbound_tags outbound_tag default_outbound
-            config_get selector_proxy_links "$section" "selector_proxy_links"
-            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
+configure_outbound() {
+    local outbound="$1"
 
-            if [ -z "$selector_proxy_links" ]; then
-                log "URLTest proxy links is not set. Aborted." "fatal"
-                exit 1
-            fi
+    local type outbound_tag
+    config_get type "$outbound" "type"
+    outbound_tag="$(get_outbound_tag_by_section "$outbound")"
 
-            i=1
-            for link in $selector_proxy_links; do
-                config="$(sing_box_cf_add_proxy_outbound "$config" "$section-$i" "$link" "$udp_over_tcp")"
-                outbound_tag="$(get_outbound_tag_by_section "$section-$i")"
-                if [ -z "$outbound_tags" ]; then
-                    outbound_tags="$outbound_tag"
-                    default_outbound="$outbound_tag"
-                else
-                    outbound_tags="$outbound_tags,$outbound_tag"
-                fi
-                i=$((i + 1))
-            done
+    case "$type" in
+    url)
+        local url udp_over_tcp
+        config_get url "$outbound" "url"
+        config_get udp_over_tcp "$outbound" "udp_over_tcp"
 
-            selector_tag="$(get_outbound_tag_by_section "$section")"
-            selector_outbounds="$(comma_string_to_json_array "$outbound_tags")"
-            config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" \
-                "$default_outbound")"
-            ;;
-        urltest)
-            log "Detected proxy configuration type: urltest" "debug"
-            local urltest_proxy_links udp_over_tcp i urltest_tag selector_tag outbound_tag outbound_tags \
-                urltest_outbounds selector_outbounds urltest_check_interval urltest_tolerance urltest_testing_url
-            config_get urltest_proxy_links "$section" "urltest_proxy_links"
-            config_get udp_over_tcp "$section" "enable_udp_over_tcp"
-            config_get urltest_check_interval "$section" "urltest_check_interval" "3m"
-            config_get urltest_tolerance "$section" "urltest_tolerance" 50
-            config_get urltest_testing_url "$section" "urltest_testing_url" "https://www.gstatic.com/generate_204"
-
-            if [ -z "$urltest_proxy_links" ]; then
-                log "URLTest proxy links is not set. Aborted." "fatal"
-                exit 1
-            fi
-
-            i=1
-            for link in $urltest_proxy_links; do
-                config="$(sing_box_cf_add_proxy_outbound "$config" "$section-$i" "$link" "$udp_over_tcp")"
-                outbound_tag="$(get_outbound_tag_by_section "$section-$i")"
-                if [ -z "$outbound_tags" ]; then
-                    outbound_tags="$outbound_tag"
-                else
-                    outbound_tags="$outbound_tags,$outbound_tag"
-                fi
-                i=$((i + 1))
-            done
-
-            urltest_tag="$(get_outbound_tag_by_section "$section-urltest")"
-            selector_tag="$(get_outbound_tag_by_section "$section")"
-            urltest_outbounds="$(comma_string_to_json_array "$outbound_tags")"
-            selector_outbounds="$(comma_string_to_json_array "$outbound_tags,$urltest_tag")"
-            config="$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$urltest_outbounds" \
-                "$urltest_testing_url" "$urltest_check_interval" "$urltest_tolerance")"
-            config="$(sing_box_cm_add_selector_outbound "$config" "$selector_tag" "$selector_outbounds" "$urltest_tag")"
-            ;;
-        *)
-            log "Unknown proxy configuration type: '$proxy_config_type'. Aborted." "fatal"
-            exit 1
-            ;;
-        esac
-        ;;
-    vpn)
-        log "Configuring outbound in VPN connection type for the $section section"
-        local interface_name domain_resolver_enabled domain_resolver_dns_type domain_resolver_dns_server \
-            domain_resolver_dns_server_address outbound_tag domain_resolver_tag dns_domain_resolver
-
-        config_get interface_name "$section" "interface"
-        # Absent until "Domain Resolver" is saved once in LuCI
-        config_get_bool domain_resolver_enabled "$section" "domain_resolver_enabled" 0
-        config_get domain_resolver_dns_type "$section" "domain_resolver_dns_type" "udp"
-        config_get domain_resolver_dns_server "$section" "domain_resolver_dns_server" "8.8.8.8"
-
-        if [ -z "$interface_name" ]; then
-            log "VPN interface is not set. Aborted." "fatal"
+        if [ -z "$url" ]; then
+            log "Connection '$outbound' has no link. Aborted." "fatal"
             exit 1
         fi
+        config=$(sing_box_cf_add_proxy_outbound "$config" "$outbound" "$url" "$udp_over_tcp")
+        ;;
+    json)
+        local json
+        config_get json "$outbound" "json"
+        config=$(sing_box_cf_add_json_outbound "$config" "$outbound" "$json")
+        ;;
+    interface)
+        local interface_name domain_resolver_enabled domain_resolver_dns_type domain_resolver_dns_server \
+            domain_resolver_dns_server_address domain_resolver_tag dns_domain_resolver
 
-        local outbound_tag
-        outbound_tag="$(get_outbound_tag_by_section "$section")"
+        config_get interface_name "$outbound" "interface"
+        # Absent until "Domain Resolver" is saved once in LuCI
+        config_get_bool domain_resolver_enabled "$outbound" "domain_resolver_enabled" 0
+        config_get domain_resolver_dns_type "$outbound" "domain_resolver_dns_type" "udp"
+        config_get domain_resolver_dns_server "$outbound" "domain_resolver_dns_server" "8.8.8.8"
+
+        if [ -z "$interface_name" ]; then
+            log "Connection '$outbound' has no network interface. Aborted." "fatal"
+            exit 1
+        fi
 
         if [ "$domain_resolver_enabled" -eq 1 ]; then
             domain_resolver_dns_server_address="$(url_get_host "$domain_resolver_dns_server")"
             if ! is_ipv4 "$domain_resolver_dns_server_address"; then
                 dns_domain_resolver=$SB_BOOTSTRAP_SERVER_TAG
             fi
-            domain_resolver_tag="$(get_domain_resolver_tag "$section")"
+            domain_resolver_tag="$(get_domain_resolver_tag "$outbound")"
             config=$(sing_box_cf_add_dns_server "$config" "$domain_resolver_dns_type" "$domain_resolver_tag" \
                 "$domain_resolver_dns_server" "$dns_domain_resolver" "$outbound_tag")
         fi
 
         config=$(sing_box_cm_add_interface_outbound "$config" "$outbound_tag" "$interface_name" "$domain_resolver_tag")
         ;;
-    block)
-        log "Connection type 'block' detected for the $section section – no outbound will be created (handled via reject route rules)"
+    selector)
+        local member_tags first_member
+        member_tags="$(connection_member_tags "$outbound")"
+        first_member="$(echo "$member_tags" | jq -r '.[0]')"
+        config=$(sing_box_cm_add_selector_outbound "$config" "$outbound_tag" "$member_tags" "$first_member")
         ;;
-    exclusion)
-        log "Connection type 'exclusion' detected for the $section section – no outbound will be created (handled via route rules)"
+    urltest)
+        # Wrapped in a selector, so that a member can still be chosen by hand on the dashboard
+        local member_tags urltest_tag check_url check_interval tolerance
+        member_tags="$(connection_member_tags "$outbound")"
+        urltest_tag="$(get_outbound_tag_by_section "$outbound-urltest")"
+        config_get check_url "$outbound" "check_url" "$CONNECTION_CHECK_URL"
+        config_get check_interval "$outbound" "check_interval" "3m"
+        config_get tolerance "$outbound" "tolerance" 50
+
+        config=$(sing_box_cm_add_urltest_outbound "$config" "$urltest_tag" "$member_tags" \
+            "$check_url" "$check_interval" "$tolerance")
+        config=$(sing_box_cm_add_selector_outbound "$config" "$outbound_tag" \
+            "$(echo "$member_tags" | jq -c --arg urltest "$urltest_tag" '. + [$urltest]')" "$urltest_tag")
+        ;;
+    fallback)
+        # The first member until it stops responding, the fallback guard switches the selector. Open
+        # connections are closed on a switch, they would hang on the member that stopped responding.
+        local member_tags first_member
+        member_tags="$(connection_member_tags "$outbound")"
+        first_member="$(echo "$member_tags" | jq -r '.[0]')"
+        config=$(sing_box_cm_add_selector_outbound "$config" "$outbound_tag" "$member_tags" "$first_member" true)
         ;;
     *)
-        log "Unknown connection type '$connection_type' for the $section section. Aborted." "fatal"
+        log "Connection '$outbound' has an unknown type '$type'. Aborted." "fatal"
         exit 1
         ;;
     esac
@@ -1280,9 +1470,9 @@ sing_box_configure_route() {
         config=$(sing_box_cf_add_single_key_reject_rule "$config" "$SB_TPROXY_INBOUND_TAG" "protocol" "quic")
     fi
 
-    local first_outbound_section
-    first_outbound_section="$(get_first_outbound_section)"
-    first_outbound_tag="$(get_outbound_tag_by_section "$first_outbound_section")"
+    local first_outbound
+    first_outbound="$(get_first_section_outbound)"
+    first_outbound_tag="$(get_outbound_tag_by_section "$first_outbound")"
     config=$(sing_box_cf_proxy_domain "$config" "$SB_TPROXY_INBOUND_TAG" "$CHECK_PROXY_IP_DOMAIN" "$first_outbound_tag")
     config=$(sing_box_cf_override_domain_port "$config" "$FAKEIP_TEST_DOMAIN" 8443)
 
@@ -1305,13 +1495,15 @@ sing_box_configure_route() {
 include_source_ips_in_routing_handler() {
     local section="$1"
 
-    local fully_routed_ips rule_tag
+    local fully_routed_ips rule_tag connection_type outbound
     config_get fully_routed_ips "$section" "fully_routed_ips"
-    if [ -n "$fully_routed_ips" ]; then
+    config_get connection_type "$section" "connection_type"
+    config_get outbound "$section" "outbound"
+    if [ -n "$fully_routed_ips" ] && [ "$connection_type" = "outbound" ]; then
         rule_tag="$(gen_id)"
         config=$(
             sing_box_cm_add_route_rule \
-                "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$section")"
+                "$config" "$rule_tag" "$SB_TPROXY_INBOUND_TAG" "$(get_outbound_tag_by_section "$outbound")"
         )
         config_list_foreach "$section" "fully_routed_ips" include_source_ip_in_routing_handler "$rule_tag"
     fi
@@ -1394,9 +1586,11 @@ configure_routing_for_section_lists() {
     config_get_bool resolve_real_ip_for_routing "$section" "resolve_real_ip_for_routing" 0
 
     case "$section_connection_type" in
-    proxy | vpn)
+    outbound)
+        local section_outbound
+        config_get section_outbound "$section" "outbound"
         route_rule_tag="$(gen_id)"
-        outbound_tag=$(get_outbound_tag_by_section "$section")
+        outbound_tag=$(get_outbound_tag_by_section "$section_outbound")
         config=$(sing_box_cm_add_route_rule "$config" "$route_rule_tag" "$SB_TPROXY_INBOUND_TAG" "$outbound_tag")
         ;;
     block)
@@ -1792,23 +1986,26 @@ sing_box_additional_inbounds() {
     local download_lists_via_proxy
     config_get_bool download_lists_via_proxy "settings" "download_lists_via_proxy" 0
     if [ "$download_lists_via_proxy" -eq 1 ]; then
-        local download_lists_via_proxy_section section_outbound_tag
-        config_get download_lists_via_proxy_section "settings" "download_lists_via_proxy_section"
-        section_outbound_tag="$(get_outbound_tag_by_section "$download_lists_via_proxy_section")"
+        local download_outbound
+        config_get download_outbound "settings" "download_lists_via_outbound"
+        if ! is_connection "$download_outbound"; then
+            download_outbound="$(get_first_section_outbound)"
+            log "The connection for downloading lists is not set or does not exist, using '$download_outbound'" "warn"
+        fi
         config=$(
             sing_box_cf_add_mixed_inbound_and_route_rule \
                 "$config" \
                 "$SB_SERVICE_MIXED_INBOUND_TAG" \
                 "$SB_SERVICE_MIXED_INBOUND_ADDRESS" \
                 "$SB_SERVICE_MIXED_INBOUND_PORT" \
-                "$section_outbound_tag"
+                "$(get_outbound_tag_by_section "$download_outbound")"
         )
     fi
 
-    config_foreach generate_for_section "section" configure_section_mixed_proxy
+    config_foreach generate_for_section "outbound" configure_outbound_mixed_proxy
 }
 
-configure_section_mixed_proxy() {
+configure_outbound_mixed_proxy() {
     local section="$1"
 
     local mixed_inbound_enabled mixed_proxy_port mixed_inbound_tag mixed_outbound_tag mixed_proxy_address
@@ -2161,23 +2358,29 @@ get_service_proxy_address() {
     fi
 }
 
-_determine_first_outbound_section() {
+_determine_first_section_outbound() {
     local section="$1"
 
     local connection_type
     config_get connection_type "$section" "connection_type"
 
-    if [ "$connection_type" = "proxy" ] || [ "$connection_type" = "vpn" ]; then
-        [ -z "$first_section" ] && first_section="$1"
+    if [ "$connection_type" = "outbound" ] && [ -z "$first_outbound" ]; then
+        config_get first_outbound "$section" "outbound"
     fi
 }
 
-get_first_outbound_section() {
-    local first_section=""
+_determine_first_outbound() {
+    [ -z "$first_outbound" ] && first_outbound="$1"
+}
 
-    config_foreach _determine_first_outbound_section "section"
+# The connection of the first section that routes through one, or the first connection at all
+get_first_section_outbound() {
+    local first_outbound=""
 
-    echo "$first_section"
+    config_foreach _determine_first_section_outbound "section"
+    [ -z "$first_outbound" ] && config_foreach _determine_first_outbound "outbound"
+
+    echo "$first_outbound"
 }
 
 get_sections_by_connection_type() {
@@ -2447,19 +2650,25 @@ show_config() {
         return 1
     fi
 
-    tmp_config=$(mktemp)
-
-    sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
-        -e '/option outbound_json/,/^}/c\	option outbound_json '\''MASKED'\''' \
+    # A JSON outbound may span several lines inside its quotes: everything up to the closing quote is
+    # dropped. A sed range ending at "}" swallowed the rest of the file when the JSON was on one line.
+    awk '
+        skipping { if ($0 ~ /'\''[[:space:]]*$/) skipping = 0; next }
+        $1 == "option" && ($2 == "json" || $2 == "outbound_json") {
+            print "\toption " $2 " '\''MASKED'\''"
+            line = $0
+            sub(/^[^'\'']*'\''/, "", line)
+            if (line !~ /'\''[[:space:]]*$/) skipping = 1
+            next
+        }
+        { print }
+    ' "$OKOP_CONFIG" | sed -e 's/\(option proxy_string\).*/\1 '\''MASKED'\''/g' \
+        -e 's/\(option url\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list urltest_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e 's/\(list selector_proxy_links\).*/\1 '\''MASKED'\''/g' \
         -e "s@\\(option dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
         -e "s@\\(option domain_resolver_dns_server '[^/]*\\)/[^']*'@\\1/MASKED'@g" \
-        -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g' \
-        "$OKOP_CONFIG" > "$tmp_config"
-
-    cat "$tmp_config"
-    rm -f "$tmp_config"
+        -e 's/\(option yacd_secret_key\).*/\1 '\''MASKED'\''/g'
 }
 
 show_version() {
