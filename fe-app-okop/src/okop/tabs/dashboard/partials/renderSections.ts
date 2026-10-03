@@ -44,6 +44,9 @@ export function renderDefaultState({
     }
   }
 
+  // A fallback group switches by itself, its members are only shown
+  const selectable = section.selectable ?? section.withTagSelect;
+
   function renderOutbound(outbound: Okop.Outbound) {
     function getLatencyClass() {
       if (!outbound.latency) {
@@ -64,10 +67,8 @@ export function renderDefaultState({
     return E(
       'div',
       {
-        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? 'pdk_dashboard-page__outbound-grid__item--active' : ''} ${section.withTagSelect ? 'pdk_dashboard-page__outbound-grid__item--selectable' : ''}`,
-        click: () =>
-          section.withTagSelect &&
-          onChooseOutbound(section.code, outbound.code),
+        class: `pdk_dashboard-page__outbound-grid__item ${outbound.selected ? 'pdk_dashboard-page__outbound-grid__item--active' : ''} ${selectable ? 'pdk_dashboard-page__outbound-grid__item--selectable' : ''}`,
+        click: () => selectable && onChooseOutbound(section.code, outbound.code),
       },
       [
         E('b', {}, [outbound.displayName]),

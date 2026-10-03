@@ -5,48 +5,7 @@
 "require uci";
 "require tools.widgets as widgets";
 "require view.okop.main as main";
-
-// Short description of a proxy link for the sections table: protocol and server name, never credentials
-function describeProxyLink(link) {
-  const match = String(link || "")
-    .trim()
-    .match(/^([a-z0-9]+):\/\/([^?#]*)[^#]*(?:#(.*))?$/i);
-  if (!match) {
-    return _("invalid link");
-  }
-
-  const [, scheme, authority, name] = match;
-  // The server follows the last "@": a password may itself contain "/" or "@". Without "@" an ss link
-  // is entirely base64 with the password inside, so nothing of it is shown.
-  const at = authority.lastIndexOf("@");
-  let label = "";
-  if (at >= 0) {
-    label = authority.slice(at + 1).split("/")[0];
-  } else if (scheme.toLowerCase() !== "ss") {
-    label = authority.split("/")[0];
-  }
-  if (name) {
-    try {
-      label = decodeURIComponent(name);
-    } catch (e) {
-      label = name;
-    }
-  }
-
-  return label ? `${scheme.toLowerCase()} · ${label}` : scheme.toLowerCase();
-}
-
-function describeOutboundJson(json) {
-  try {
-    const outbound = JSON.parse(json);
-    const server = outbound.server
-      ? ` · ${outbound.server}${outbound.server_port ? ":" + outbound.server_port : ""}`
-      : "";
-    return `${outbound.type || "outbound"}${server}`;
-  } catch (e) {
-    return _("invalid JSON");
-  }
-}
+"require view.okop.outbound as outbound";
 
 function toArray(value) {
   if (value == null || value === "") {
@@ -70,48 +29,26 @@ function countEntries(section_id, listType, dynamicOption, textOption) {
 
 function describeConnection(section_id) {
   const get = (option) => uci.get("okop", section_id, option);
-  const lines = [];
+  let line;
 
   switch (get("connection_type")) {
-    case "proxy": {
-      const configType = get("proxy_config_type") || "url";
-      if (configType === "url") {
-        lines.push(describeProxyLink(get("proxy_string")));
-      } else if (configType === "outbound") {
-        lines.push(describeOutboundJson(get("outbound_json")));
-      } else {
-        const links = toArray(
-          get(configType === "urltest" ? "urltest_proxy_links" : "selector_proxy_links"),
-        );
-        lines.push(
-          `${configType === "urltest" ? "URLTest" : "Selector"} · ` +
-            _("links: %d").format(links.length),
-        );
-      }
-      break;
-    }
-    case "vpn":
-      lines.push(`VPN · ${get("interface") || _("no interface")}`);
-      if (get("domain_resolver_enabled") === "1") {
-        lines.push(_("domain resolver: %s").format(get("domain_resolver_dns_server")));
-      }
+    case "outbound":
+      line = get("outbound")
+        ? `${get("outbound")} · ${outbound.describeConnection(get("outbound"))}`
+        : _("no connection selected");
       break;
     case "block":
-      lines.push(_("Block"));
+      line = _("Block");
       break;
     case "exclusion":
-      lines.push(_("Exclusion"));
+      line = _("Exclusion");
       break;
     default:
-      lines.push(_("not configured"));
+      line = _("not configured");
   }
 
-  if (get("mixed_proxy_enabled") === "1") {
-    lines.push(_("mixed proxy on port %s").format(get("mixed_proxy_port")));
-  }
-
-  // Arrays, not strings: LuCI inserts a string child as HTML, and these come from user input (link names)
-  return E("div", {}, lines.map((line) => E("div", {}, [line])));
+  // An array, not a string: LuCI inserts a string child as HTML, and link names come from user input
+  return E("div", {}, [line]);
 }
 
 function describeLists(section_id) {
@@ -183,301 +120,24 @@ function createSectionContent(section) {
     form.ListValue,
     "connection_type",
     _("Connection Type"),
-    _("Select between VPN and Proxy connection methods for traffic routing"),
+    _(
+      "Send the traffic of the lists through a connection, block it, or let it go directly",
+    ),
   );
-  o.value("proxy", "Proxy");
-  o.value("vpn", "VPN");
-  o.value("block", "Block");
-  o.value("exclusion", "Exclusion");
+  o.value("outbound", _("Through a connection"));
+  o.value("block", _("Block"));
+  o.value("exclusion", _("Exclusion"));
+  o.default = "outbound";
 
-  o = section.taboption(
+  o = outbound.addConnectionOption(
+    section,
     "basic",
-    form.ListValue,
-    "proxy_config_type",
-    _("Configuration Type"),
-    _("Select how to configure the proxy"),
+    "outbound",
+    _("Connection"),
+    _("Connections are set up on the Outbound connections tab"),
   );
-  o.value("url", _("Connection URL"));
-  o.value("selector", _("Selector"));
-  o.value("urltest", _("URLTest"));
-  o.value("outbound", _("Outbound Config"));
-  o.default = "url";
-  o.depends("connection_type", "proxy");
-
-  o = section.taboption(
-    "basic",
-    form.TextValue,
-    "proxy_string",
-    _("Proxy Configuration URL"),
-    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
-  );
-  o.depends("proxy_config_type", "url");
-  o.rows = 5;
-  // Enable soft wrapping for multi-line proxy URLs (e.g., for URLTest proxy links)
-  o.wrap = "soft";
-  // Render as a textarea to allow multiple proxy URLs/configs
-  o.textarea = true;
+  o.depends("connection_type", "outbound");
   o.rmempty = false;
-  o.sectionDescriptions = new Map();
-  o.validate = function (section_id, value) {
-    // Optional
-    if (!value || value.length === 0) {
-      return true;
-    }
-
-    const validation = main.validateProxyUrl(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
-
-  o = section.taboption(
-    "basic",
-    form.TextValue,
-    "outbound_json",
-    _("Outbound Configuration"),
-    _("Enter complete outbound configuration in JSON format"),
-  );
-  o.depends("proxy_config_type", "outbound");
-  o.rows = 10;
-  o.validate = function (section_id, value) {
-    // Optional
-    if (!value || value.length === 0) {
-      return true;
-    }
-
-    const validation = main.validateOutboundJson(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
-
-  o = section.taboption(
-    "basic",
-    form.DynamicList,
-    "selector_proxy_links",
-    _("Selector Proxy Links"),
-    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
-  );
-  o.depends("proxy_config_type", "selector");
-  o.rmempty = false;
-  o.validate = function (section_id, value) {
-    // Optional
-    if (!value || value.length === 0) {
-      return true;
-    }
-
-    const validation = main.validateProxyUrl(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
-
-  o = section.taboption(
-    "basic",
-    form.DynamicList,
-    "urltest_proxy_links",
-    _("URLTest Proxy Links"),
-    _("vless://, ss://, trojan://, socks4/5://, hy2/hysteria2:// links")
-  );
-  o.depends("proxy_config_type", "urltest");
-  o.rmempty = false;
-  o.validate = function (section_id, value) {
-    // Optional
-    if (!value || value.length === 0) {
-      return true;
-    }
-
-    const validation = main.validateProxyUrl(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
-
-  o = section.taboption(
-    "basic",
-    form.ListValue,
-    "urltest_check_interval",
-    _("URLTest Check Interval"),
-    _("The interval between connectivity tests")
-  );
-  o.value("30s", _("Every 30 seconds"));
-  o.value("1m", _("Every 1 minute"));
-  o.value("3m", _("Every 3 minutes"));
-  o.value("5m", _("Every 5 minutes"));
-  o.default = "3m";
-  o.depends("proxy_config_type", "urltest");
-
-  o = section.taboption(
-    "basic",
-    form.Value,
-    "urltest_tolerance",
-    _("URLTest Tolerance"),
-    _("The maximum difference in response times (ms) allowed when comparing servers")
-  );
-  o.default = "50";
-  o.rmempty = false;
-  o.depends("proxy_config_type", "urltest");
-  o.validate = function (section_id, value) {
-    if (!value || value.length === 0) {
-      return true;
-    }
-
-    const parsed = parseFloat(value);
-
-    if (/^[0-9]+$/.test(value) && !isNaN(parsed) && isFinite(parsed) && parsed >= 50 && parsed <= 1000) {
-      return true;
-    }
-
-    return _('Must be a number in the range of 50 - 1000');
-  };
-
-  o = section.taboption(
-    "basic",
-    form.Value,
-    "urltest_testing_url",
-    _("URLTest Testing URL"),
-    _("The URL used to test server connectivity")
-  );
-  o.value("https://www.gstatic.com/generate_204", "https://www.gstatic.com/generate_204 (Google)");
-  o.value("https://cp.cloudflare.com/generate_204", "https://cp.cloudflare.com/generate_204 (Cloudflare)");
-  o.value("https://captive.apple.com", "https://captive.apple.com (Apple)");
-  o.value("https://connectivity-check.ubuntu.com", "https://connectivity-check.ubuntu.com (Ubuntu)")
-  o.default = "https://www.gstatic.com/generate_204";
-  o.rmempty = false;
-  o.depends("proxy_config_type", "urltest");
-
-  o.validate = function (section_id, value) {
-    if (!value || value.length === 0) {
-      return true;
-    }
-
-    const validation = main.validateUrl(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
-
-  o = section.taboption(
-    "basic",
-    form.Flag,
-    "enable_udp_over_tcp",
-    _("UDP over TCP"),
-    _("Applicable for SOCKS and Shadowsocks proxy"),
-  );
-  o.default = "0";
-  o.depends("connection_type", "proxy");
-  o.rmempty = false;
-
-  o = section.taboption(
-    "basic",
-    widgets.DeviceSelect,
-    "interface",
-    _("Network Interface"),
-    _("Select network interface for VPN connection"),
-  );
-  o.depends("connection_type", "vpn");
-  o.noaliases = true;
-  o.nobridges = false;
-  o.noinactive = false;
-  o.filter = function (section_id, value) {
-    // Blocked interface names that should never be selectable
-    const blockedInterfaces = [
-      "br-lan",
-      "eth0",
-      "eth1",
-      "wan",
-      "phy0-ap0",
-      "phy1-ap0",
-      "pppoe-wan",
-      "lan",
-    ];
-
-    // Reject immediately if the value matches any blocked interface
-    if (blockedInterfaces.includes(value)) {
-      return false;
-    }
-
-    // Try to find the device object with the given name
-    const device = this.devices.find((dev) => dev.getName() === value);
-
-    // If no device is found, allow the value
-    if (!device) {
-      return true;
-    }
-
-    // Get the device type (e.g., "wifi", "ethernet", etc.)
-    const type = device.getType();
-
-    // Reject wireless-related devices
-    const isWireless =
-      type === "wifi" || type === "wireless" || type.includes("wlan");
-
-    return !isWireless;
-  };
-
-  o = section.taboption(
-    "basic",
-    form.Flag,
-    "domain_resolver_enabled",
-    _("Domain Resolver"),
-    _("Enable built-in DNS resolver for domains handled by this section"),
-  );
-  o.default = "0";
-  o.rmempty = false;
-  o.depends("connection_type", "vpn");
-
-  o = section.taboption(
-    "basic",
-    form.ListValue,
-    "domain_resolver_dns_type",
-    _("DNS Protocol Type"),
-    _("Select the DNS protocol type for the domain resolver"),
-  );
-  o.value("doh", _("DNS over HTTPS (DoH)"));
-  o.value("dot", _("DNS over TLS (DoT)"));
-  o.value("udp", _("UDP (Unprotected DNS)"));
-  o.default = "udp";
-  o.rmempty = false;
-  o.depends("domain_resolver_enabled", "1");
-
-  o = section.taboption(
-    "basic",
-    form.Value,
-    "domain_resolver_dns_server",
-    _("DNS Server"),
-    _("Select or enter DNS server address"),
-  );
-  Object.entries(main.DNS_SERVER_OPTIONS).forEach(([key, label]) => {
-    o.value(key, _(label));
-  });
-  o.default = "8.8.8.8";
-  o.rmempty = false;
-  o.depends("domain_resolver_enabled", "1");
-  o.validate = function (section_id, value) {
-    const validation = main.validateDNS(value);
-
-    if (validation.valid) {
-      return true;
-    }
-
-    return validation.message;
-  };
 
   o = section.taboption(
     "lists",
@@ -839,8 +499,7 @@ function createSectionContent(section) {
   );
   o.placeholder = "192.168.1.2 or 192.168.1.0/24";
   o.rmempty = true;
-  o.depends("connection_type", "proxy");
-  o.depends("connection_type", "vpn");
+  o.depends("connection_type", "outbound");
   o.validate = function (section_id, value) {
     // Optional
     if (!value || value.length === 0) {
@@ -859,68 +518,13 @@ function createSectionContent(section) {
   o = section.taboption(
     "advanced",
     form.Flag,
-    "mixed_proxy_enabled",
-    _("Enable Mixed Proxy"),
-    _(
-      "Enable the mixed proxy, allowing this section to route traffic through both HTTP and SOCKS proxies",
-    ),
-  );
-  o.default = "0";
-  o.rmempty = false;
-  o.depends("connection_type", "proxy");
-  o.depends("connection_type", "vpn");
-
-  o = section.taboption(
-    "advanced",
-    form.Value,
-    "mixed_proxy_port",
-    _("Mixed Proxy Port"),
-    _(
-      "Specify the port number on which the mixed proxy will run for this section. Make sure the selected port is not used by another service",
-    ),
-  );
-  o.rmempty = false;
-  // Without this a typo is saved and okop then aborts the start, leaving the traffic interception
-  // in place with no sing-box behind it
-  o.datatype = "port";
-  o.depends("mixed_proxy_enabled", "1");
-  // The mixed proxy listens on the LAN address, where these ports are taken by the router itself.
-  // sing-box would fail to bind and the start would be rolled back.
-  o.validate = function (section_id, value) {
-    const port = parseInt(value, 10);
-    const routerPorts = [22, 53, 80, 443, 9090];
-    if (routerPorts.includes(port)) {
-      return _(
-        "Port %d is used by the router itself (SSH, DNS, web interface or Clash API)",
-      ).format(port);
-    }
-
-    const takenByOtherSection = uci
-      .sections("okop", "section")
-      .some(
-        (other) =>
-          other[".name"] !== section_id &&
-          other.mixed_proxy_enabled === "1" &&
-          parseInt(other.mixed_proxy_port, 10) === port,
-      );
-    if (takenByOtherSection) {
-      return _("Port %d is already used by another section").format(port);
-    }
-
-    return true;
-  };
-
-  o = section.taboption(
-    "advanced",
-    form.Flag,
     "resolve_real_ip_for_routing",
     _("Resolve real IP for routing"),
     _("Enable DNS resolve to get real IP when routing"),
   );
   o.default = "0";
   o.rmempty = false;
-  o.depends("connection_type", "proxy");
-  o.depends("connection_type", "vpn");
+  o.depends("connection_type", "outbound");
 
   createSectionColumns(section);
 }

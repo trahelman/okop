@@ -41,6 +41,9 @@ else
     cp "$PODKOP_CONFIG" /etc/config/okop
     uci set okop.settings.migrated_from_podkop='1'
     uci commit okop
+    # Connections out of the sections right away, whatever order the uci-defaults scripts run in
+    . /usr/lib/okop/migrate_outbounds.sh
+    migrate_sections_to_outbounds
     logger -t "okop" "Configuration migrated from $PODKOP_CONFIG, the original is kept as $PODKOP_CONFIG_DONE"
 fi
 

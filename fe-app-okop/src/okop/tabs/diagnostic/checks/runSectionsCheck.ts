@@ -60,8 +60,19 @@ export async function runSectionsCheck() {
               };
             }
 
-            const selectedProxyDelay =
+            let selectedProxyDelay =
               latencyGroup.data?.[selectedOutbound?.code ?? ''];
+
+            // A group delay skips a member whose own member was already tested (a nested group):
+            // the selected member is then tested on its own
+            if (!selectedProxyDelay && selectedOutbound?.code) {
+              const own = await OkopShellMethods.getClashApiProxyLatency(
+                selectedOutbound.code,
+              );
+              if (own.success && !own.data.message) {
+                selectedProxyDelay = own.data.delay;
+              }
+            }
 
             if (selectedProxyDelay) {
               return {

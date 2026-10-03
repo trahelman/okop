@@ -83,63 +83,36 @@ export namespace Okop {
   }
 
   export interface OutboundGroup {
+    // A connection group: latency is tested for the whole group
     withTagSelect: boolean;
+    // The member can be chosen by hand. A fallback group switches by itself.
+    selectable?: boolean;
     code: string;
     displayName: string;
     outbounds: Outbound[];
   }
 
-  export interface ConfigProxyUrlTestSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'urltest';
-    urltest_proxy_links: string[];
-  }
+  export type ConnectionType =
+    | 'url'
+    | 'json'
+    | 'interface'
+    | 'fallback'
+    | 'urltest'
+    | 'selector';
 
-  export interface ConfigProxySelectorSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'selector';
-    selector_proxy_links: string[];
-  }
-
-  export interface ConfigProxyUrlSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'url';
-    proxy_string: string;
-  }
-
-  export interface ConfigProxyOutboundSection {
-    connection_type: 'proxy';
-    proxy_config_type: 'outbound';
-    outbound_json: string;
-  }
-
-  export interface ConfigVpnSection {
-    connection_type: 'vpn';
-    interface: string;
-  }
-
-  export interface ConfigBlockSection {
-    connection_type: 'block';
-  }
-
-  export interface ConfigExclusionSection {
-    connection_type: 'exclusion';
-  }
-
-  export type ConfigBaseSection =
-    | ConfigProxyUrlTestSection
-    | ConfigProxySelectorSection
-    | ConfigProxyUrlSection
-    | ConfigProxyOutboundSection
-    | ConfigVpnSection
-    | ConfigBlockSection
-    | ConfigExclusionSection;
-
-  export type ConfigSection = ConfigBaseSection & {
+  // A section of /etc/config/okop: the settings, a section with lists or a connection
+  export interface ConfigSection {
     '.name': string;
-    '.type': 'settings' | 'section';
+    '.type': 'settings' | 'section' | 'outbound';
     yacd_secret_key?: string;
-  };
+    connection_type?: 'outbound' | 'block' | 'exclusion';
+    outbound?: string;
+    type?: ConnectionType;
+    url?: string;
+    json?: string;
+    interface?: string;
+    members?: string | string[];
+  }
 
   export interface MethodSuccessResponse<T> {
     success: true;

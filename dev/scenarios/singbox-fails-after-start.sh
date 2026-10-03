@@ -20,8 +20,8 @@ result=0
 load_fixture proxy
 info "Starting with the mixed proxy on the Clash API port"
 on_router sh -c "
-    uci set okop.main.mixed_proxy_enabled=1
-    uci set okop.main.mixed_proxy_port=9090
+    uci set okop.dev_proxy.mixed_proxy_enabled=1
+    uci set okop.dev_proxy.mixed_proxy_port=9090
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1
 sleep 45

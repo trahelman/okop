@@ -36,6 +36,15 @@ DNS_GUARD_MIN_SUCCESSES=3
 DNS_PROBE_DOMAIN="openwrt.org"
 DNS_GUARD_MAX_UNRESOLVED=6
 DNS_GUARD_PID_FILE="/var/run/okop_dns_guard.pid"
+# Fallback connection groups: the first member is used until it fails FALLBACK_MAX_FAILURES checks in a
+# row, a higher priority member is taken back after FALLBACK_MIN_SUCCESSES successful checks in a row
+FALLBACK_GUARD_PID_FILE="/var/run/okop_fallback_guard.pid"
+FALLBACK_GUARD_TICK=5
+FALLBACK_MAX_FAILURES=2
+FALLBACK_MIN_SUCCESSES=3
+FALLBACK_TEST_TIMEOUT=5000
+# Checked through connection groups (URLTest, fallback) unless the group sets its own URL
+CONNECTION_CHECK_URL="https://www.gstatic.com/generate_204"
 # Seconds start waits for sing-box to serve before it rolls back
 SING_BOX_START_TIMEOUT=30
 
