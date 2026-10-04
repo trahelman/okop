@@ -640,6 +640,8 @@ var Okop;
     AvailableMethods2["CHECK_SING_BOX"] = "check_sing_box";
     AvailableMethods2["GET_SING_BOX_STATUS"] = "get_sing_box_status";
     AvailableMethods2["GET_DNS_GUARD_STATUS"] = "get_dns_guard_status";
+    AvailableMethods2["LIST_UPDATE_START"] = "list_update_start";
+    AvailableMethods2["LIST_UPDATE_STATUS"] = "list_update_status";
     AvailableMethods2["CLASH_API"] = "clash_api";
     AvailableMethods2["RESTART"] = "restart";
     AvailableMethods2["START"] = "start";
@@ -680,6 +682,12 @@ var OkopShellMethods = {
   ),
   getDnsGuardStatus: async () => callBaseMethod(
     Okop.AvailableMethods.GET_DNS_GUARD_STATUS
+  ),
+  listUpdateStart: async () => callBaseMethod(
+    Okop.AvailableMethods.LIST_UPDATE_START
+  ),
+  getListUpdateStatus: async () => callBaseMethod(
+    Okop.AvailableMethods.LIST_UPDATE_STATUS
   ),
   getClashApiProxies: async () => callBaseMethod(Okop.AvailableMethods.CLASH_API, [
     Okop.AvailableClashAPIMethods.GET_PROXIES
@@ -1186,6 +1194,9 @@ var initialDiagnosticStore = {
       loading: false
     },
     showSingBoxConfig: {
+      loading: false
+    },
+    listUpdate: {
       loading: false
     }
   },
@@ -1983,10 +1994,11 @@ function prettyBytes(n) {
 
 // src/okop/fetchers/fetchServicesInfo.ts
 async function fetchServicesInfo() {
-  const [okop, singbox, dnsGuard] = await Promise.all([
+  const [okop, singbox, dnsGuard, listUpdate] = await Promise.all([
     OkopShellMethods.getStatus(),
     OkopShellMethods.getSingBoxStatus(),
-    OkopShellMethods.getDnsGuardStatus()
+    OkopShellMethods.getDnsGuardStatus(),
+    OkopShellMethods.getListUpdateStatus()
   ]);
   if (!okop.success || !singbox.success) {
     store.set({
@@ -2005,7 +2017,8 @@ async function fetchServicesInfo() {
         data: {
           singbox: singbox.data.running,
           okop: okop.data.enabled,
-          dnsGuard: dnsGuard.success && typeof dnsGuard.data === "object" ? dnsGuard.data : void 0
+          dnsGuard: dnsGuard.success && typeof dnsGuard.data === "object" ? dnsGuard.data : void 0,
+          listUpdate: listUpdate.success && typeof listUpdate.data === "object" ? listUpdate.data : void 0
         }
       }
     });
@@ -2023,8 +2036,7 @@ function markUnreachable(groups, tested) {
   }));
 }
 
-// src/okop/tabs/dashboard/getDnsGuardRow.ts
-var ROW_CLASS = "pdk_dashboard-page__widgets-section__item__row";
+// src/helpers/formatSince.ts
 function uiLocale() {
   return typeof document !== "undefined" && document.documentElement.lang || void 0;
 }
@@ -2046,6 +2058,9 @@ function formatSince(since, now = /* @__PURE__ */ new Date()) {
     minute: "2-digit"
   });
 }
+
+// src/okop/tabs/dashboard/getDnsGuardRow.ts
+var ROW_CLASS = "pdk_dashboard-page__widgets-section__item__row";
 function withSince(text, since, now) {
   const time = formatSince(since, now);
   return time ? `${text} ${_("since %s").replace("%s", time)}` : text;
@@ -2087,6 +2102,98 @@ function getDnsGuardRow(status, now = /* @__PURE__ */ new Date()) {
         value: _("\u2718 Not running"),
         attributes: { class: `${ROW_CLASS}--error` }
       };
+  }
+}
+
+// src/okop/tabs/dashboard/getListUpdateRow.ts
+var ROW_CLASS2 = "pdk_dashboard-page__widgets-section__item__row";
+function getListName(url) {
+  const path = url.split(/[?#]/)[0].replace(/\/+$/, "");
+  const name = path.slice(path.lastIndexOf("/") + 1) || url;
+  try {
+    return decodeURIComponent(name);
+  } catch {
+    return name;
+  }
+}
+function getFailedNames(status) {
+  return status.failed.map(getListName).join(", ");
+}
+function getNetworkReason(status) {
+  return status.reason === "dns" ? _("DNS does not work") : _("GitHub is unreachable");
+}
+function withTime(text, time, now) {
+  const formatted = formatSince(time, now);
+  return formatted ? `${text} (${formatted})` : text;
+}
+function getListUpdateRow(status, now = /* @__PURE__ */ new Date()) {
+  const key = _("Lists");
+  const previousCopies = _("The previous copies are used");
+  switch (status.state) {
+    case "running":
+      return { key, value: _("Updating\u2026"), attributes: { class: "" } };
+    case "ok":
+      return {
+        key,
+        value: _("\u2714 Updated at %s").replace(
+          "%s",
+          formatSince(status.finished, now)
+        ),
+        attributes: { class: `${ROW_CLASS2}--success` }
+      };
+    case "partial":
+      return {
+        key,
+        value: withTime(
+          status.failed.length ? _("\u26A0 Not downloaded: %s").replace(
+            "%s",
+            String(status.failed.length)
+          ) : _("\u26A0 Not all lists were updated"),
+          status.finished,
+          now
+        ),
+        hint: status.failed.length ? `${getFailedNames(status)}. ${previousCopies}` : previousCopies,
+        attributes: { class: `${ROW_CLASS2}--warning` }
+      };
+    case "network":
+      return {
+        key,
+        value: withTime(_("\u26A0 Not updated"), status.finished, now),
+        hint: `${getNetworkReason(status)}. ${previousCopies}`,
+        attributes: { class: `${ROW_CLASS2}--warning` }
+      };
+    case "interrupted":
+      return {
+        key,
+        value: withTime(_("\u26A0 Update interrupted"), status.started, now),
+        hint: previousCopies,
+        attributes: { class: `${ROW_CLASS2}--warning` }
+      };
+    default:
+      return { key, value: _("Not updated yet"), attributes: { class: "" } };
+  }
+}
+function getListUpdateResultMessage(status) {
+  switch (status.state) {
+    case "ok":
+      return { message: _("Lists updated"), type: "success" };
+    case "partial":
+      return {
+        message: status.failed.length ? _("Not downloaded: %s").replace("%s", getFailedNames(status)) : _("Not all lists were updated"),
+        type: "error"
+      };
+    case "network":
+      return {
+        message: _("Lists were not updated: %s").replace(
+          "%s",
+          getNetworkReason(status)
+        ),
+        type: "error"
+      };
+    case "interrupted":
+      return { message: _("The lists update was interrupted"), type: "error" };
+    default:
+      return { message: _("The lists update did not finish"), type: "error" };
   }
 }
 
@@ -2390,7 +2497,8 @@ async function renderServicesInfoWidget() {
           class: servicesInfoWidget.data.singbox ? "pdk_dashboard-page__widgets-section__item__row--success" : "pdk_dashboard-page__widgets-section__item__row--error"
         }
       },
-      ...servicesInfoWidget.data.dnsGuard ? [getDnsGuardRow(servicesInfoWidget.data.dnsGuard)] : []
+      ...servicesInfoWidget.data.dnsGuard ? [getDnsGuardRow(servicesInfoWidget.data.dnsGuard)] : [],
+      ...servicesInfoWidget.data.listUpdate ? [getListUpdateRow(servicesInfoWidget.data.listUpdate)] : []
     ]
   });
   container.replaceChildren(renderedWidget);
@@ -3325,6 +3433,29 @@ function renderRotateCcwIcon24() {
   );
 }
 
+// src/icons/renderDownloadIcon24.ts
+function renderDownloadIcon24() {
+  const NS = "http://www.w3.org/2000/svg";
+  return svgEl(
+    "svg",
+    {
+      xmlns: NS,
+      viewBox: "0 0 24 24",
+      fill: "none",
+      stroke: "currentColor",
+      "stroke-width": "2",
+      "stroke-linecap": "round",
+      "stroke-linejoin": "round",
+      class: "lucide lucide-download-icon lucide-download"
+    },
+    [
+      svgEl("path", { d: "M12 15V3" }),
+      svgEl("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
+      svgEl("path", { d: "m7 10 5 5 5-5" })
+    ]
+  );
+}
+
 // src/icons/renderCircleStopIcon24.ts
 function renderCircleStopIcon24() {
   const NS = "http://www.w3.org/2000/svg";
@@ -3652,7 +3783,8 @@ function renderAvailableActions({
   disable,
   globalCheck,
   viewLogs,
-  showSingBoxConfig
+  showSingBoxConfig,
+  listUpdate
 }) {
   return E("div", { class: "pdk_diagnostic-page__right-bar__actions" }, [
     E("b", {}, _("Available actions")),
@@ -3704,6 +3836,15 @@ function renderAvailableActions({
         text: _("Enable autostart"),
         loading: enable.loading,
         disabled: enable.disabled
+      })
+    ]),
+    ...insertIf(listUpdate.visible, [
+      renderButton({
+        onClick: listUpdate.onClick,
+        icon: renderDownloadIcon24,
+        text: _("Update lists"),
+        loading: listUpdate.loading,
+        disabled: listUpdate.disabled
       })
     ]),
     ...insertIf(globalCheck.visible, [
@@ -4134,6 +4275,8 @@ function getOkopVersionRow(diagnosticsSystemInfo) {
 }
 
 // src/okop/tabs/diagnostic/initController.ts
+var LIST_UPDATE_POLL_INTERVAL = 2e3;
+var LIST_UPDATE_MAX_WAIT = 15 * 60 * 1e3;
 async function fetchSystemInfo() {
   const systemInfo = await OkopShellMethods.getSystemInfo();
   if (systemInfo.success) {
@@ -4179,6 +4322,52 @@ function renderDiagnosticRunActionWidget() {
   return preserveScrollForPage(() => {
     container.replaceChildren(renderedAction);
   });
+}
+function setListUpdateLoading(loading) {
+  store.set({
+    diagnosticsActions: {
+      ...store.get().diagnosticsActions,
+      listUpdate: { loading }
+    }
+  });
+}
+async function waitForListUpdate() {
+  const deadline = Date.now() + LIST_UPDATE_MAX_WAIT;
+  while (Date.now() < deadline) {
+    await new Promise(
+      (resolve) => setTimeout(resolve, LIST_UPDATE_POLL_INTERVAL)
+    );
+    const status = await OkopShellMethods.getListUpdateStatus();
+    if (status.success && typeof status.data === "object" && status.data.state !== "running") {
+      return status.data;
+    }
+  }
+  return void 0;
+}
+async function handleListUpdate() {
+  setListUpdateLoading(true);
+  try {
+    const start = await OkopShellMethods.listUpdateStart();
+    if (!start.success || typeof start.data !== "object") {
+      showToast(_("Failed to execute!"), "error");
+      return;
+    }
+    if (start.data.reason === "not_running") {
+      showToast(_("Okop is not running, the lists are not updated"), "error");
+      return;
+    }
+    const status = await waitForListUpdate();
+    const { message, type } = status ? getListUpdateResultMessage(status) : {
+      message: _("The lists update did not finish"),
+      type: "error"
+    };
+    showToast(message, type, type === "success" ? 3e3 : 1e4);
+  } catch (e) {
+    logger.error("[DIAGNOSTIC]", "handleListUpdate - e", e);
+  } finally {
+    await fetchServicesInfo();
+    setListUpdateLoading(false);
+  }
 }
 async function handleRestart() {
   const diagnosticsActions = store.get().diagnosticsActions;
@@ -4469,6 +4658,12 @@ function renderDiagnosticAvailableActionsWidget() {
       loading: diagnosticsActions.showSingBoxConfig.loading,
       visible: true,
       onClick: handleShowSingBoxConfig,
+      disabled: atLeastOneServiceCommandLoading
+    },
+    listUpdate: {
+      loading: diagnosticsActions.listUpdate.loading,
+      visible: singBoxRunning,
+      onClick: handleListUpdate,
       disabled: atLeastOneServiceCommandLoading
     }
   });

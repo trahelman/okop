@@ -11,6 +11,7 @@ import { fetchServicesInfo } from '../../fetchers';
 import { getClashApiSecret } from '../../methods/custom/getClashApiSecret';
 import { markUnreachable } from './markUnreachable';
 import { getDnsGuardRow } from './getDnsGuardRow';
+import { getListUpdateRow } from './getListUpdateRow';
 import { Okop } from '../../types';
 
 // Latency is tested when the dashboard opens and then periodically: nothing else tests a connection a
@@ -379,6 +380,9 @@ async function renderServicesInfoWidget() {
       },
       ...(servicesInfoWidget.data.dnsGuard
         ? [getDnsGuardRow(servicesInfoWidget.data.dnsGuard)]
+        : []),
+      ...(servicesInfoWidget.data.listUpdate
+        ? [getListUpdateRow(servicesInfoWidget.data.listUpdate)]
         : []),
     ],
   });

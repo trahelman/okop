@@ -24,6 +24,9 @@
         "/usr/bin/okop get_dns_guard_status": [
           "exec"
         ],
+        "/usr/bin/okop list_update_status": [
+          "exec"
+        ],
         "/usr/bin/okop global_check": [
           "exec"
         ],

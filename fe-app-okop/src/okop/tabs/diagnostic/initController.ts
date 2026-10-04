@@ -20,6 +20,12 @@ import { showToast } from '../../../helpers/showToast';
 import { renderWikiDisclaimer } from './partials/renderWikiDisclaimer';
 import { runSectionsCheck } from './checks/runSectionsCheck';
 import { getOkopVersionRow } from './helpers/getOkopVersionRow';
+import { getListUpdateResultMessage } from '../dashboard/getListUpdateRow';
+import { Okop } from '../../types';
+
+// An update checks DNS and GitHub with retries before it downloads anything, minutes on a bad network
+const LIST_UPDATE_POLL_INTERVAL = 2000;
+const LIST_UPDATE_MAX_WAIT = 15 * 60 * 1000;
 
 async function fetchSystemInfo() {
   const systemInfo = await OkopShellMethods.getSystemInfo();
@@ -76,6 +82,72 @@ function renderDiagnosticRunActionWidget() {
   return preserveScrollForPage(() => {
     container!.replaceChildren(renderedAction);
   });
+}
+
+function setListUpdateLoading(loading: boolean) {
+  store.set({
+    diagnosticsActions: {
+      ...store.get().diagnosticsActions,
+      listUpdate: { loading },
+    },
+  });
+}
+
+// The update runs in the background on the router, rpcd would cut a command waiting for it after 30 seconds
+async function waitForListUpdate(): Promise<
+  Okop.GetListUpdateStatus | undefined
+> {
+  const deadline = Date.now() + LIST_UPDATE_MAX_WAIT;
+
+  while (Date.now() < deadline) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, LIST_UPDATE_POLL_INTERVAL),
+    );
+
+    const status = await OkopShellMethods.getListUpdateStatus();
+    if (
+      status.success &&
+      typeof status.data === 'object' &&
+      status.data.state !== 'running'
+    ) {
+      return status.data;
+    }
+  }
+
+  return undefined;
+}
+
+async function handleListUpdate() {
+  setListUpdateLoading(true);
+
+  try {
+    const start = await OkopShellMethods.listUpdateStart();
+
+    if (!start.success || typeof start.data !== 'object') {
+      showToast(_('Failed to execute!'), 'error');
+      return;
+    }
+
+    if (start.data.reason === 'not_running') {
+      showToast(_('Okop is not running, the lists are not updated'), 'error');
+      return;
+    }
+
+    // "already_running": the update started by cron or with okop is followed instead
+    const status = await waitForListUpdate();
+    const { message, type } = status
+      ? getListUpdateResultMessage(status)
+      : {
+          message: _('The lists update did not finish'),
+          type: 'error' as const,
+        };
+    showToast(message, type, type === 'success' ? 3000 : 10000);
+  } catch (e) {
+    logger.error('[DIAGNOSTIC]', 'handleListUpdate - e', e);
+  } finally {
+    await fetchServicesInfo();
+    setListUpdateLoading(false);
+  }
 }
 
 async function handleRestart() {
@@ -400,6 +472,12 @@ function renderDiagnosticAvailableActionsWidget() {
       loading: diagnosticsActions.showSingBoxConfig.loading,
       visible: true,
       onClick: handleShowSingBoxConfig,
+      disabled: atLeastOneServiceCommandLoading,
+    },
+    listUpdate: {
+      loading: diagnosticsActions.listUpdate.loading,
+      visible: singBoxRunning,
+      onClick: handleListUpdate,
       disabled: atLeastOneServiceCommandLoading,
     },
   });

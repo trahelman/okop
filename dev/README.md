@@ -77,6 +77,7 @@ LuCI: http://127.0.0.1:8080, пользователь `root` без пароля
 | `diagnostics-mask-secrets` | Вывод диагностики не содержит ключа Clash API, путей DoH, логинов и паролей прокси и WAN |
 | `dns-guard-detects-dead-upstream` | DNS-сервер sing-box недоступен: защита DNS возвращает dnsmasq на обычные серверы |
 | `dns-guard-status` | `okop get_dns_guard_status` показывает состояние защиты DNS и время переключения |
+| `list-update-status` | Обновление списков по кнопке: запуск в фоне, повторное нажатие, список с ошибкой, нет сети, прерванное обновление |
 | `failed-start-leaves-no-blackhole` | Неудачный запуск снимает перехват и возвращает dnsmasq |
 | `shutdown-and-disabled-upgrade` | При выключении роутера okop возвращает dnsmasq; обновление пакета не запускает выключенный okop |
 | `stop-during-start` | `stop` во время `start` и `start`, убитый сигналом TERM: okop остаётся выключенным целиком, без перехвата |

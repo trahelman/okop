@@ -20,17 +20,32 @@ msgstr ""
 msgid "%s was not renamed: %s"
 msgstr "%s не переименовано: %s"
 
+msgid "⚠ Not all lists were updated"
+msgstr "⚠ Обновились не все списки"
+
+msgid "⚠ Not downloaded: %s"
+msgstr "⚠ Не скачались: %s"
+
+msgid "⚠ Not updated"
+msgstr "⚠ Не обновились"
+
 msgid "⚠ sing-box DNS server is unreachable"
 msgstr "⚠ DNS-сервер sing-box недоступен"
 
 msgid "⚠ sing-box is not responding"
 msgstr "⚠ sing-box не отвечает"
 
+msgid "⚠ Update interrupted"
+msgstr "⚠ Обновление прервано"
+
 msgid "✔ Enabled"
 msgstr "✔ Включено"
 
 msgid "✔ Running"
 msgstr "✔ Работает"
+
+msgid "✔ Updated at %s"
+msgstr "✔ Обновлены в %s"
 
 msgid "✔ Working"
 msgstr "✔ Работает"
@@ -212,6 +227,9 @@ msgstr "Отключено"
 msgid "DNS and traffic to the lists go directly"
 msgstr "DNS и трафик к спискам идут напрямую"
 
+msgid "DNS does not work"
+msgstr "Не работает DNS"
+
 msgid "DNS goes through the regular servers, domains from the lists go directly"
 msgstr "DNS идёт через обычные серверы, домены из списков — напрямую"
 
@@ -343,6 +361,9 @@ msgstr "полностью маршрутизируемых IP: %d"
 
 msgid "Get global check"
 msgstr "Получить глобальную проверку"
+
+msgid "GitHub is unreachable"
+msgstr "Нет доступа к GitHub"
 
 msgid "Global check"
 msgstr "Глобальная проверка"
@@ -530,6 +551,12 @@ msgstr "Через это подключение скачиваются спис
 msgid "Lists Storage Path"
 msgstr "Путь хранения списков"
 
+msgid "Lists updated"
+msgstr "Списки обновлены"
+
+msgid "Lists were not updated: %s"
+msgstr "Списки не обновились: %s"
+
 msgid "Local Domain Lists"
 msgstr "Локальные списки доменов"
 
@@ -584,8 +611,14 @@ msgstr "нет списков"
 msgid "No other marking rules found"
 msgstr "Другие правила маркировки не найдены"
 
+msgid "Not all lists were updated"
+msgstr "Обновились не все списки"
+
 msgid "not configured"
 msgstr "не настроено"
+
+msgid "Not downloaded: %s"
+msgstr "Не скачались: %s"
 
 msgid "Not implement yet"
 msgstr "Ещё не реализовано"
@@ -596,11 +629,17 @@ msgstr "Не отвечает"
 msgid "Not running"
 msgstr "Не запущено"
 
+msgid "Not updated yet"
+msgstr "Ещё не обновлялись"
+
 msgid "not used"
 msgstr "не используется"
 
 msgid "Okop"
 msgstr "Okop"
+
+msgid "Okop is not running, the lists are not updated"
+msgstr "Okop не запущен, списки не обновляются"
 
 msgid "Okop Settings"
 msgstr "Настройки Okop"
@@ -866,6 +905,12 @@ msgstr "Подключение %s используется: %s. Сначала �
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr "DNS-сервер, используемый для поиска IP-адреса вышестоящего DNS-сервера"
 
+msgid "The lists update did not finish"
+msgstr "Обновление списков не завершилось"
+
+msgid "The lists update was interrupted"
+msgstr "Обновление списков прервано"
+
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr "Максимально допустимая разница во времени отклика (мс) при сравнении серверов"
 
@@ -874,6 +919,9 @@ msgstr "Имя %s уже занято"
 
 msgid "The name %s is reserved, choose another one"
 msgstr "Имя %s зарезервировано, выберите другое"
+
+msgid "The previous copies are used"
+msgstr "Используются прошлые копии"
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"
@@ -913,6 +961,12 @@ msgstr "Неизвестная ошибка"
 
 msgid "Unreachable"
 msgstr "Нет связи"
+
+msgid "Update lists"
+msgstr "Обновить списки"
+
+msgid "Updating…"
+msgstr "Обновляются…"
 
 msgid "Uplink"
 msgstr "Исходящий"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { formatSince, getDnsGuardRow } from '../getDnsGuardRow';
+import { getDnsGuardRow } from '../getDnsGuardRow';
+import { formatSince } from '../../../../helpers/formatSince';
 import { Okop } from '../../../types';
 
 function status(
