@@ -18,8 +18,9 @@ export async function executeShellCommand({
   args,
   timeout = COMMAND_TIMEOUT,
 }: ExecuteShellCommandParams): Promise<ExecuteShellCommandResponse> {
+  // Awaited, so that a timeout or an rpc error ends up in the catch: callers expect a result, not a throw
   try {
-    return withTimeout(
+    return await withTimeout(
       fs.exec(command, args),
       timeout,
       [command, ...args].join(' '),

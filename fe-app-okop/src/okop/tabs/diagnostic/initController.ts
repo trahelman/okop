@@ -117,7 +117,21 @@ async function waitForListUpdate(): Promise<
   return undefined;
 }
 
-async function handleListUpdate() {
+// Outlives the tab: leaving Diagnostics resets the button, the update and its notification go on
+let listUpdateInFlight: Promise<void> | undefined;
+
+function handleListUpdate() {
+  if (!listUpdateInFlight) {
+    listUpdateInFlight = runListUpdate().finally(() => {
+      listUpdateInFlight = undefined;
+      setListUpdateLoading(false);
+    });
+  }
+
+  return listUpdateInFlight;
+}
+
+async function runListUpdate() {
   setListUpdateLoading(true);
 
   try {
@@ -129,7 +143,7 @@ async function handleListUpdate() {
     }
 
     if (start.data.reason === 'not_running') {
-      showToast(_('Okop is not running, the lists are not updated'), 'error');
+      showToast(_('Okop is not running, the lists cannot be updated'), 'error');
       return;
     }
 
@@ -144,17 +158,17 @@ async function handleListUpdate() {
     showToast(message, type, type === 'success' ? 3000 : 10000);
   } catch (e) {
     logger.error('[DIAGNOSTIC]', 'handleListUpdate - e', e);
-  } finally {
-    await fetchServicesInfo();
-    setListUpdateLoading(false);
   }
+
+  await fetchServicesInfo().catch((e) =>
+    logger.error('[DIAGNOSTIC]', 'handleListUpdate - fetchServicesInfo', e),
+  );
 }
 
 async function handleRestart() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       restart: { loading: true },
     },
   });
@@ -168,7 +182,7 @@ async function handleRestart() {
       await fetchServicesInfo();
       store.set({
         diagnosticsActions: {
-          ...diagnosticsActions,
+          ...store.get().diagnosticsActions,
           restart: { loading: false },
         },
       });
@@ -178,10 +192,9 @@ async function handleRestart() {
 }
 
 async function handleStop() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       stop: { loading: true },
     },
   });
@@ -194,7 +207,7 @@ async function handleStop() {
     await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         stop: { loading: false },
       },
     });
@@ -203,10 +216,9 @@ async function handleStop() {
 }
 
 async function handleStart() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       start: { loading: true },
     },
   });
@@ -220,7 +232,7 @@ async function handleStart() {
       await fetchServicesInfo();
       store.set({
         diagnosticsActions: {
-          ...diagnosticsActions,
+          ...store.get().diagnosticsActions,
           start: { loading: false },
         },
       });
@@ -230,10 +242,9 @@ async function handleStart() {
 }
 
 async function handleEnable() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       enable: { loading: true },
     },
   });
@@ -246,7 +257,7 @@ async function handleEnable() {
     await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         enable: { loading: false },
       },
     });
@@ -254,10 +265,9 @@ async function handleEnable() {
 }
 
 async function handleDisable() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       disable: { loading: true },
     },
   });
@@ -270,7 +280,7 @@ async function handleDisable() {
     await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         disable: { loading: false },
       },
     });
@@ -278,10 +288,9 @@ async function handleDisable() {
 }
 
 async function handleShowGlobalCheck() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       globalCheck: { loading: true },
     },
   });
@@ -304,7 +313,7 @@ async function handleShowGlobalCheck() {
   } finally {
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         globalCheck: { loading: false },
       },
     });
@@ -312,10 +321,9 @@ async function handleShowGlobalCheck() {
 }
 
 async function handleViewLogs() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       viewLogs: { loading: true },
     },
   });
@@ -338,7 +346,7 @@ async function handleViewLogs() {
   } finally {
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         viewLogs: { loading: false },
       },
     });
@@ -346,10 +354,9 @@ async function handleViewLogs() {
 }
 
 async function handleShowSingBoxConfig() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       showSingBoxConfig: { loading: true },
     },
   });
@@ -379,7 +386,7 @@ async function handleShowSingBoxConfig() {
   } finally {
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         showSingBoxConfig: { loading: false },
       },
     });
@@ -572,6 +579,11 @@ function onPageMount() {
 
   // Add new listener
   store.subscribe(onStoreUpdate);
+
+  // The reset above cleared the flag of an update still running: its end must change it to re-render
+  if (listUpdateInFlight) {
+    setListUpdateLoading(true);
+  }
 
   // Initial checks render
   renderDiagnosticsChecks();

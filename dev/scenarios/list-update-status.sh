@@ -38,12 +38,25 @@ start_update() {
     on_router /usr/bin/okop list_update_start
 }
 
+started_by_button() {
+    [ "$(echo "$1" | jq -r .started)" = 1 ]
+}
+
+update_started_after() {
+    [ "$(update_field started)" -ge "$1" ]
+}
+
+no_update_process() {
+    ! on_router pgrep -f "okop list_update" > /dev/null
+}
+
 result=0
 
 dc start proxy > /dev/null
+restarted_at="$(on_router date +%s)"
 load_fixture proxy
 
-if wait_for 120 update_state_is ok && [ "$(update_field failed)" = "[]" ]; then
+if wait_for 120 update_state_is ok && [ "$(update_field failed)" = "[]" ] && update_started_after "$restarted_at"; then
     pass "the update at start records its result"
 else
     fail "unexpected status after start: $(update_status)" || result=1
@@ -77,10 +90,12 @@ on_router sh -c "
     uci commit okop
     /etc/init.d/okop restart" > /dev/null 2>&1
 wait_okop
-wait_for 120 update_finished || true
-start_update > /dev/null
+wait_for 120 update_finished || fail "the update at restart did not finish: $(update_status)" || result=1
+pressed_at="$(on_router date +%s)"
+response="$(start_update)"
 
-if wait_for 120 update_finished && update_state_is partial &&
+if started_by_button "$response" && wait_for 120 update_finished && update_state_is partial &&
+    update_started_after "$pressed_at" &&
     update_status | jq -e --arg url "$MISSING_LIST" '.failed == [$url]' > /dev/null; then
     pass "a list that failed is named in the status"
 else
@@ -89,9 +104,9 @@ fi
 
 info "Stopping the proxy the lists are downloaded through"
 dc stop proxy > /dev/null
-start_update > /dev/null
+response="$(start_update)"
 
-if wait_for 240 update_finished && update_state_is network && [ "$(update_field reason)" = "github" ]; then
+if started_by_button "$response" && wait_for 240 update_finished && update_state_is network && [ "$(update_field reason)" = "github" ]; then
     pass "an update without access to GitHub is reported as such"
 else
     fail "unexpected status without the proxy: $(update_status)" || result=1
@@ -99,10 +114,13 @@ fi
 dc start proxy > /dev/null
 
 info "Stopping okop during an update"
-start_update > /dev/null
+response="$(start_update)"
+started_by_button "$response" || fail "the update was not started: $response" || result=1
 on_router /etc/init.d/okop stop > /dev/null 2>&1
 
-if wait_for 30 update_state_is interrupted; then
+# The update must really be gone, not just reported so: a survivor would overwrite the status later
+if wait_for 30 update_state_is interrupted && no_update_process && sleep 20 &&
+    update_state_is interrupted && no_update_process; then
     pass "an update killed by stop is reported as interrupted"
 else
     fail "unexpected status after stop: $(update_status)" || result=1

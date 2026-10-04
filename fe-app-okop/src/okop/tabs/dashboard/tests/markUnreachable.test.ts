@@ -11,7 +11,7 @@ function group(...outbounds: Okop.Outbound[]): Okop.OutboundGroup {
 }
 
 describe('markUnreachable', () => {
-  it('marks a tested outbound without latency', () => {
+  it('marks an outbound whose test failed', () => {
     const [card] = markUnreachable(
       [group(outbound('vpn-out', 0))],
       new Set(['vpn-out']),
@@ -20,7 +20,7 @@ describe('markUnreachable', () => {
     expect(card.outbounds[0].unreachable).toBe(true);
   });
 
-  it('keeps a tested outbound that responded', () => {
+  it('keeps an outbound that has a latency again', () => {
     const [card] = markUnreachable(
       [group(outbound('vpn-out', 120))],
       new Set(['vpn-out']),
@@ -29,7 +29,7 @@ describe('markUnreachable', () => {
     expect(card.outbounds[0].unreachable).toBe(false);
   });
 
-  it('does not mark an outbound no test covered', () => {
+  it('does not mark an outbound whose test did not fail', () => {
     const [card] = markUnreachable(
       [group(outbound('vpn-out', 0), outbound('proxy-out', 0))],
       new Set(['proxy-out']),

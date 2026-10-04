@@ -47,7 +47,7 @@ describe('getListUpdateRow', () => {
   it('shows a successful update with its time', () => {
     const row = getListUpdateRow(status({}), NOW);
 
-    expect(row.value).toBe(`✔ Updated at ${formatSince(FINISHED, NOW)}`);
+    expect(row.value).toBe(`✔ Updated: ${formatSince(FINISHED, NOW)}`);
     expect(row.attributes.class).toContain('--success');
   });
 
@@ -66,7 +66,7 @@ describe('getListUpdateRow', () => {
     expect(row.value).toBe(
       `⚠ Not downloaded: 2 (${formatSince(FINISHED, NOW)})`,
     );
-    expect(row.hint).toBe('a.lst, b.srs. The previous copies are used');
+    expect(row.hint).toBe('a.lst, b.srs. Lists downloaded before keep working');
     expect(row.attributes.class).toContain('--warning');
   });
 
@@ -77,7 +77,7 @@ describe('getListUpdateRow', () => {
     );
 
     expect(row.hint).toBe(
-      'GitHub is unreachable. The previous copies are used',
+      'GitHub is unreachable. Lists downloaded before keep working',
     );
   });
 

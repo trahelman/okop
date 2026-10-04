@@ -44,8 +44,8 @@ msgstr "✔ Включено"
 msgid "✔ Running"
 msgstr "✔ Работает"
 
-msgid "✔ Updated at %s"
-msgstr "✔ Обновлены в %s"
+msgid "✔ Updated: %s"
+msgstr "✔ Обновлены: %s"
 
 msgid "✔ Working"
 msgstr "✔ Работает"
@@ -548,6 +548,9 @@ msgstr "Списки"
 msgid "Lists are downloaded through this connection"
 msgstr "Через это подключение скачиваются списки"
 
+msgid "Lists downloaded before keep working"
+msgstr "Списки, скачанные раньше, продолжают работать"
+
 msgid "Lists Storage Path"
 msgstr "Путь хранения списков"
 
@@ -638,8 +641,8 @@ msgstr "не используется"
 msgid "Okop"
 msgstr "Okop"
 
-msgid "Okop is not running, the lists are not updated"
-msgstr "Okop не запущен, списки не обновляются"
+msgid "Okop is not running, the lists cannot be updated"
+msgstr "Okop не запущен, обновить списки нельзя"
 
 msgid "Okop Settings"
 msgstr "Настройки Okop"
@@ -919,9 +922,6 @@ msgstr "Имя %s уже занято"
 
 msgid "The name %s is reserved, choose another one"
 msgstr "Имя %s зарезервировано, выберите другое"
-
-msgid "The previous copies are used"
-msgstr "Используются прошлые копии"
 
 msgid "The URL used to test server connectivity"
 msgstr "URL-адрес, используемый для проверки подключения к серверу"

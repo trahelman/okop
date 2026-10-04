@@ -17,18 +17,25 @@ import { Okop } from '../../types';
 // Latency is tested when the dashboard opens and then periodically: nothing else tests a connection a
 // section uses directly, and its card kept the last result after the connection went down.
 const LATENCY_TEST_INTERVAL = 60_000;
-// The DNS guard switches within about 15 seconds, and reading the state sends nothing anywhere
-const SERVICES_INFO_INTERVAL = 15_000;
+// Each refresh runs four okop commands on the router, so not more often than this
+const SERVICES_INFO_INTERVAL = 30_000;
 
-// Outbounds a latency test on this page covered
-const testedOutbounds = new Set<string>();
+// Outbounds whose last latency test on this page failed. Only a test that ran counts: sing-box also
+// has no latency for an outbound nobody tested since it restarted.
+const unreachableOutbounds = new Set<string>();
 let latencyTestTimer: ReturnType<typeof setInterval> | undefined;
 let servicesInfoTimer: ReturnType<typeof setInterval> | undefined;
+// LuCI calls initController on load, render and save, and the tab listener mounts too, so mounts
+// overlap. Each one bumps the generation; work of an older one stops at its next await.
+let mountGeneration = 0;
+// Results of fetches started earlier than the last applied one are dropped
+let sectionsRequest = 0;
 
 // Fetchers
 
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
+  const request = ++sectionsRequest;
 
   store.set({
     sectionsWidget: {
@@ -38,6 +45,10 @@ async function fetchDashboardSections() {
   });
 
   const { data, success } = await CustomOkopMethods.getDashboardSections();
+
+  if (request !== sectionsRequest) {
+    return;
+  }
 
   if (!success) {
     logger.error('[DASHBOARD]', 'fetchDashboardSections: failed to fetch');
@@ -49,19 +60,46 @@ async function fetchDashboardSections() {
       latencyFetching: store.get().sectionsWidget.latencyFetching,
       loading: false,
       failed: !success,
-      data: markUnreachable(data, testedOutbounds),
+      data: markUnreachable(data, unreachableOutbounds),
     },
   });
 }
 
+function recordLatencyResult(code: string, responded: boolean) {
+  if (responded) {
+    unreachableOutbounds.delete(code);
+  } else {
+    unreachableOutbounds.add(code);
+  }
+}
+
+// A call that did not run (rpc error, timeout, Clash API down) changes nothing
 async function testSectionLatency(section: Okop.OutboundGroup) {
   if (section.withTagSelect) {
-    await OkopShellMethods.getClashApiGroupLatency(section.code);
-  } else if (section.outbounds.length) {
-    await OkopShellMethods.getClashApiProxyLatency(section.outbounds[0].code);
+    const result = await OkopShellMethods.getClashApiGroupLatency(section.code);
+    if (!result.success || typeof result.data !== 'object' || !result.data) {
+      return;
+    }
+
+    // The group test lists only the members that responded
+    const delays = result.data;
+    section.outbounds.forEach((outbound) =>
+      recordLatencyResult(outbound.code, Number(delays[outbound.code]) > 0),
+    );
+    return;
   }
 
-  section.outbounds.forEach((outbound) => testedOutbounds.add(outbound.code));
+  const outbound = section.outbounds[0];
+  if (!outbound) {
+    return;
+  }
+
+  const result = await OkopShellMethods.getClashApiProxyLatency(outbound.code);
+  if (!result.success || typeof result.data !== 'object' || !result.data) {
+    return;
+  }
+
+  recordLatencyResult(outbound.code, Number(result.data.delay) > 0);
 }
 
 function setLatencyFetching(latencyFetching: boolean) {
@@ -162,31 +200,48 @@ async function handleChooseOutbound(selector: string, tag: string) {
 }
 
 async function handleTestLatency(section: Okop.OutboundGroup) {
+  const generation = mountGeneration;
   setLatencyFetching(true);
-  await testSectionLatency(section);
-  await fetchDashboardSections();
-  setLatencyFetching(false);
+
+  try {
+    await testSectionLatency(section);
+    if (generation === mountGeneration) {
+      await fetchDashboardSections();
+    }
+  } finally {
+    if (generation === mountGeneration) {
+      setLatencyFetching(false);
+    }
+  }
 }
 
 async function testAllLatency(showProgress: boolean) {
+  const generation = mountGeneration;
   const sections = store.get().sectionsWidget.data;
 
   if (showProgress) {
     setLatencyFetching(true);
   }
 
-  await Promise.all(sections.map((section) => testSectionLatency(section)));
-
-  // The dashboard was closed while the tests ran
-  if (!latencyTestTimer) {
-    return;
+  try {
+    await Promise.all(sections.map((section) => testSectionLatency(section)));
+    if (generation === mountGeneration) {
+      await fetchDashboardSections();
+    }
+  } finally {
+    if (showProgress && generation === mountGeneration) {
+      setLatencyFetching(false);
+    }
   }
+}
 
-  await fetchDashboardSections();
-
-  if (showProgress) {
-    setLatencyFetching(false);
-  }
+// A browser tab in the background does not need fresh numbers, the router does the work for nothing
+function whileVisible(callback: () => void) {
+  return () => {
+    if (!document.hidden) {
+      callback();
+    }
+  };
 }
 
 // Renderer
@@ -419,33 +474,44 @@ async function onStoreUpdate(
 async function onPageMount() {
   // Cleanup before mount
   onPageUnmount();
+  const generation = mountGeneration;
 
   // Add new listener
   store.subscribe(onStoreUpdate);
 
   // Initial sections fetch
   await fetchDashboardSections();
+  if (generation !== mountGeneration) {
+    return;
+  }
+
   latencyTestTimer = setInterval(
-    () => testAllLatency(false),
+    whileVisible(() => testAllLatency(false)),
     LATENCY_TEST_INTERVAL,
   );
-  testAllLatency(true);
   servicesInfoTimer = setInterval(
-    () => fetchServicesInfo(),
+    whileVisible(() => fetchServicesInfo()),
     SERVICES_INFO_INTERVAL,
   );
+  testAllLatency(true);
+
   await fetchServicesInfo();
+  if (generation !== mountGeneration) {
+    return;
+  }
+
   await connectToClashSockets();
 }
 
 function onPageUnmount() {
+  mountGeneration++;
   // Remove old listener
   store.unsubscribe(onStoreUpdate);
   clearInterval(latencyTestTimer);
   latencyTestTimer = undefined;
   clearInterval(servicesInfoTimer);
   servicesInfoTimer = undefined;
-  testedOutbounds.clear();
+  unreachableOutbounds.clear();
   // Clear store
   store.reset([
     'bandwidthWidget',

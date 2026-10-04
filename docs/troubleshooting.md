@@ -92,6 +92,7 @@ logread -e okop | grep -iE 'rule set|download'
 | `okop check_nft_rules` | Проверка правил nftables |
 | `okop check_fakeip` | Проверка fake-IP на роутере |
 | `okop list_update` | Скачать списки прямо сейчас |
+| `okop get_dns_guard_status` | Что сейчас делает защита DNS и с какого времени |
 | `okop list_update_status` | Чем закончилось последнее обновление списков и какие списки не скачались |
 | `okop show_config` | Настройки Okop без секретов |
 | `okop show_sing_box_config` | Сгенерированный конфиг sing-box |

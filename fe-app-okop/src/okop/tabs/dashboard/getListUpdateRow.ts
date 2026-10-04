@@ -42,7 +42,7 @@ export function getListUpdateRow(
   now: Date = new Date(),
 ): ListUpdateRow {
   const key = _('Lists');
-  const previousCopies = _('The previous copies are used');
+  const previousCopies = _('Lists downloaded before keep working');
 
   switch (status.state) {
     case 'running':
@@ -50,7 +50,7 @@ export function getListUpdateRow(
     case 'ok':
       return {
         key,
-        value: _('✔ Updated at %s').replace(
+        value: _('✔ Updated: %s').replace(
           '%s',
           formatSince(status.finished, now),
         ),

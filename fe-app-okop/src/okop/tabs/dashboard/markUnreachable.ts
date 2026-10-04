@@ -1,16 +1,17 @@
 import { Okop } from '../../types';
 
 // sing-box keeps the latency of the last successful test, however old, and drops it when a test fails.
-// So only an outbound a test on this page covered and that has no latency is known not to respond.
+// So an outbound is shown unreachable only when the last test on this page failed and it still has no
+// latency (a later test elsewhere, e.g. by the fallback guard, may have succeeded).
 export function markUnreachable(
   groups: Okop.OutboundGroup[],
-  tested: Set<string>,
+  failed: Set<string>,
 ): Okop.OutboundGroup[] {
   return groups.map((group) => ({
     ...group,
     outbounds: group.outbounds.map((outbound) => ({
       ...outbound,
-      unreachable: tested.has(outbound.code) && !outbound.latency,
+      unreachable: failed.has(outbound.code) && !outbound.latency,
     })),
   }));
 }

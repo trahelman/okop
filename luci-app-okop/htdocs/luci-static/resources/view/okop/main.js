@@ -2026,37 +2026,33 @@ async function fetchServicesInfo() {
 }
 
 // src/okop/tabs/dashboard/markUnreachable.ts
-function markUnreachable(groups, tested) {
+function markUnreachable(groups, failed) {
   return groups.map((group) => ({
     ...group,
     outbounds: group.outbounds.map((outbound) => ({
       ...outbound,
-      unreachable: tested.has(outbound.code) && !outbound.latency
+      unreachable: failed.has(outbound.code) && !outbound.latency
     }))
   }));
 }
 
 // src/helpers/formatSince.ts
 function uiLocale() {
-  return typeof document !== "undefined" && document.documentElement.lang || void 0;
+  const lang = typeof document !== "undefined" ? document.documentElement.lang : "";
+  return lang ? lang.replace(/_/g, "-") : void 0;
 }
 function formatSince(since, now = /* @__PURE__ */ new Date()) {
   if (!since) {
     return "";
   }
   const date = new Date(since * 1e3);
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString(uiLocale(), {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
+  const today = date.toDateString() === now.toDateString();
+  const options = today ? { hour: "2-digit", minute: "2-digit" } : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
+  try {
+    return date.toLocaleString(uiLocale(), options);
+  } catch {
+    return date.toLocaleString(void 0, options);
   }
-  return date.toLocaleString(uiLocale(), {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
 }
 
 // src/okop/tabs/dashboard/getDnsGuardRow.ts
@@ -2128,14 +2124,14 @@ function withTime(text, time, now) {
 }
 function getListUpdateRow(status, now = /* @__PURE__ */ new Date()) {
   const key = _("Lists");
-  const previousCopies = _("The previous copies are used");
+  const previousCopies = _("Lists downloaded before keep working");
   switch (status.state) {
     case "running":
       return { key, value: _("Updating\u2026"), attributes: { class: "" } };
     case "ok":
       return {
         key,
-        value: _("\u2714 Updated at %s").replace(
+        value: _("\u2714 Updated: %s").replace(
           "%s",
           formatSince(status.finished, now)
         ),
@@ -2199,12 +2195,15 @@ function getListUpdateResultMessage(status) {
 
 // src/okop/tabs/dashboard/initController.ts
 var LATENCY_TEST_INTERVAL = 6e4;
-var SERVICES_INFO_INTERVAL = 15e3;
-var testedOutbounds = /* @__PURE__ */ new Set();
+var SERVICES_INFO_INTERVAL = 3e4;
+var unreachableOutbounds = /* @__PURE__ */ new Set();
 var latencyTestTimer;
 var servicesInfoTimer;
+var mountGeneration = 0;
+var sectionsRequest = 0;
 async function fetchDashboardSections() {
   const prev = store.get().sectionsWidget;
+  const request = ++sectionsRequest;
   store.set({
     sectionsWidget: {
       ...prev,
@@ -2212,6 +2211,9 @@ async function fetchDashboardSections() {
     }
   });
   const { data, success } = await CustomOkopMethods.getDashboardSections();
+  if (request !== sectionsRequest) {
+    return;
+  }
   if (!success) {
     logger.error("[DASHBOARD]", "fetchDashboardSections: failed to fetch");
   }
@@ -2221,17 +2223,38 @@ async function fetchDashboardSections() {
       latencyFetching: store.get().sectionsWidget.latencyFetching,
       loading: false,
       failed: !success,
-      data: markUnreachable(data, testedOutbounds)
+      data: markUnreachable(data, unreachableOutbounds)
     }
   });
 }
+function recordLatencyResult(code, responded) {
+  if (responded) {
+    unreachableOutbounds.delete(code);
+  } else {
+    unreachableOutbounds.add(code);
+  }
+}
 async function testSectionLatency(section) {
   if (section.withTagSelect) {
-    await OkopShellMethods.getClashApiGroupLatency(section.code);
-  } else if (section.outbounds.length) {
-    await OkopShellMethods.getClashApiProxyLatency(section.outbounds[0].code);
+    const result2 = await OkopShellMethods.getClashApiGroupLatency(section.code);
+    if (!result2.success || typeof result2.data !== "object" || !result2.data) {
+      return;
+    }
+    const delays = result2.data;
+    section.outbounds.forEach(
+      (outbound2) => recordLatencyResult(outbound2.code, Number(delays[outbound2.code]) > 0)
+    );
+    return;
   }
-  section.outbounds.forEach((outbound) => testedOutbounds.add(outbound.code));
+  const outbound = section.outbounds[0];
+  if (!outbound) {
+    return;
+  }
+  const result = await OkopShellMethods.getClashApiProxyLatency(outbound.code);
+  if (!result.success || typeof result.data !== "object" || !result.data) {
+    return;
+  }
+  recordLatencyResult(outbound.code, Number(result.data.delay) > 0);
 }
 function setLatencyFetching(latencyFetching) {
   store.set({
@@ -2322,24 +2345,42 @@ async function handleChooseOutbound(selector, tag) {
   await fetchDashboardSections();
 }
 async function handleTestLatency(section) {
+  const generation = mountGeneration;
   setLatencyFetching(true);
-  await testSectionLatency(section);
-  await fetchDashboardSections();
-  setLatencyFetching(false);
+  try {
+    await testSectionLatency(section);
+    if (generation === mountGeneration) {
+      await fetchDashboardSections();
+    }
+  } finally {
+    if (generation === mountGeneration) {
+      setLatencyFetching(false);
+    }
+  }
 }
 async function testAllLatency(showProgress) {
+  const generation = mountGeneration;
   const sections = store.get().sectionsWidget.data;
   if (showProgress) {
     setLatencyFetching(true);
   }
-  await Promise.all(sections.map((section) => testSectionLatency(section)));
-  if (!latencyTestTimer) {
-    return;
+  try {
+    await Promise.all(sections.map((section) => testSectionLatency(section)));
+    if (generation === mountGeneration) {
+      await fetchDashboardSections();
+    }
+  } finally {
+    if (showProgress && generation === mountGeneration) {
+      setLatencyFetching(false);
+    }
   }
-  await fetchDashboardSections();
-  if (showProgress) {
-    setLatencyFetching(false);
-  }
+}
+function whileVisible(callback) {
+  return () => {
+    if (!document.hidden) {
+      callback();
+    }
+  };
 }
 async function renderSectionsWidget() {
   logger.debug("[DASHBOARD]", "renderSectionsWidget");
@@ -2522,27 +2563,35 @@ async function onStoreUpdate(next, prev, diff) {
 }
 async function onPageMount() {
   onPageUnmount();
+  const generation = mountGeneration;
   store.subscribe(onStoreUpdate);
   await fetchDashboardSections();
+  if (generation !== mountGeneration) {
+    return;
+  }
   latencyTestTimer = setInterval(
-    () => testAllLatency(false),
+    whileVisible(() => testAllLatency(false)),
     LATENCY_TEST_INTERVAL
   );
-  testAllLatency(true);
   servicesInfoTimer = setInterval(
-    () => fetchServicesInfo(),
+    whileVisible(() => fetchServicesInfo()),
     SERVICES_INFO_INTERVAL
   );
+  testAllLatency(true);
   await fetchServicesInfo();
+  if (generation !== mountGeneration) {
+    return;
+  }
   await connectToClashSockets();
 }
 function onPageUnmount() {
+  mountGeneration++;
   store.unsubscribe(onStoreUpdate);
   clearInterval(latencyTestTimer);
   latencyTestTimer = void 0;
   clearInterval(servicesInfoTimer);
   servicesInfoTimer = void 0;
-  testedOutbounds.clear();
+  unreachableOutbounds.clear();
   store.reset([
     "bandwidthWidget",
     "trafficTotalWidget",
@@ -4344,7 +4393,17 @@ async function waitForListUpdate() {
   }
   return void 0;
 }
-async function handleListUpdate() {
+var listUpdateInFlight;
+function handleListUpdate() {
+  if (!listUpdateInFlight) {
+    listUpdateInFlight = runListUpdate().finally(() => {
+      listUpdateInFlight = void 0;
+      setListUpdateLoading(false);
+    });
+  }
+  return listUpdateInFlight;
+}
+async function runListUpdate() {
   setListUpdateLoading(true);
   try {
     const start = await OkopShellMethods.listUpdateStart();
@@ -4353,7 +4412,7 @@ async function handleListUpdate() {
       return;
     }
     if (start.data.reason === "not_running") {
-      showToast(_("Okop is not running, the lists are not updated"), "error");
+      showToast(_("Okop is not running, the lists cannot be updated"), "error");
       return;
     }
     const status = await waitForListUpdate();
@@ -4364,16 +4423,15 @@ async function handleListUpdate() {
     showToast(message, type, type === "success" ? 3e3 : 1e4);
   } catch (e) {
     logger.error("[DIAGNOSTIC]", "handleListUpdate - e", e);
-  } finally {
-    await fetchServicesInfo();
-    setListUpdateLoading(false);
   }
+  await fetchServicesInfo().catch(
+    (e) => logger.error("[DIAGNOSTIC]", "handleListUpdate - fetchServicesInfo", e)
+  );
 }
 async function handleRestart() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       restart: { loading: true }
     }
   });
@@ -4386,7 +4444,7 @@ async function handleRestart() {
       await fetchServicesInfo();
       store.set({
         diagnosticsActions: {
-          ...diagnosticsActions,
+          ...store.get().diagnosticsActions,
           restart: { loading: false }
         }
       });
@@ -4395,10 +4453,9 @@ async function handleRestart() {
   }
 }
 async function handleStop() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       stop: { loading: true }
     }
   });
@@ -4410,7 +4467,7 @@ async function handleStop() {
     await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         stop: { loading: false }
       }
     });
@@ -4418,10 +4475,9 @@ async function handleStop() {
   }
 }
 async function handleStart() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       start: { loading: true }
     }
   });
@@ -4434,7 +4490,7 @@ async function handleStart() {
       await fetchServicesInfo();
       store.set({
         diagnosticsActions: {
-          ...diagnosticsActions,
+          ...store.get().diagnosticsActions,
           start: { loading: false }
         }
       });
@@ -4443,10 +4499,9 @@ async function handleStart() {
   }
 }
 async function handleEnable() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       enable: { loading: true }
     }
   });
@@ -4458,17 +4513,16 @@ async function handleEnable() {
     await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         enable: { loading: false }
       }
     });
   }
 }
 async function handleDisable() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       disable: { loading: true }
     }
   });
@@ -4480,17 +4534,16 @@ async function handleDisable() {
     await fetchServicesInfo();
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         disable: { loading: false }
       }
     });
   }
 }
 async function handleShowGlobalCheck() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       globalCheck: { loading: true }
     }
   });
@@ -4511,17 +4564,16 @@ async function handleShowGlobalCheck() {
   } finally {
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         globalCheck: { loading: false }
       }
     });
   }
 }
 async function handleViewLogs() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       viewLogs: { loading: true }
     }
   });
@@ -4542,17 +4594,16 @@ async function handleViewLogs() {
   } finally {
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         viewLogs: { loading: false }
       }
     });
   }
 }
 async function handleShowSingBoxConfig() {
-  const diagnosticsActions = store.get().diagnosticsActions;
   store.set({
     diagnosticsActions: {
-      ...diagnosticsActions,
+      ...store.get().diagnosticsActions,
       showSingBoxConfig: { loading: true }
     }
   });
@@ -4580,7 +4631,7 @@ async function handleShowSingBoxConfig() {
   } finally {
     store.set({
       diagnosticsActions: {
-        ...diagnosticsActions,
+        ...store.get().diagnosticsActions,
         showSingBoxConfig: { loading: false }
       }
     });
@@ -4735,6 +4786,9 @@ async function runChecks() {
 function onPageMount2() {
   onPageUnmount2();
   store.subscribe(onStoreUpdate2);
+  if (listUpdateInFlight) {
+    setListUpdateLoading(true);
+  }
   renderDiagnosticsChecks();
   renderDiagnosticRunActionWidget();
   renderDiagnosticAvailableActionsWidget();
@@ -5141,7 +5195,7 @@ async function executeShellCommand({
   timeout = COMMAND_TIMEOUT
 }) {
   try {
-    return withTimeout(
+    return await withTimeout(
       fs.exec(command, args),
       timeout,
       [command, ...args].join(" ")

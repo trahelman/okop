@@ -52,19 +52,19 @@
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:363"
+      "src/okop/tabs/dashboard/initController.ts:418"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:373"
+      "src/okop/tabs/dashboard/initController.ts:428"
     ]
   },
   {
-    "call": "✔ Updated at %s",
-    "key": "✔ Updated at %s",
+    "call": "✔ Updated: %s",
+    "key": "✔ Updated: %s",
     "places": [
       "src/okop/tabs/dashboard/getListUpdateRow.ts:53"
     ]
@@ -80,7 +80,7 @@
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:363"
+      "src/okop/tabs/dashboard/initController.ts:418"
     ]
   },
   {
@@ -94,7 +94,7 @@
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:374"
+      "src/okop/tabs/dashboard/initController.ts:429"
     ]
   },
   {
@@ -122,7 +122,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:326"
+      "src/okop/tabs/dashboard/initController.ts:381"
     ]
   },
   {
@@ -615,8 +615,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:260",
-      "src/okop/tabs/dashboard/initController.ts:294"
+      "src/okop/tabs/dashboard/initController.ts:315",
+      "src/okop/tabs/dashboard/initController.ts:349"
     ]
   },
   {
@@ -779,13 +779,13 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:127",
-      "src/okop/tabs/diagnostic/initController.ts:299",
-      "src/okop/tabs/diagnostic/initController.ts:303",
-      "src/okop/tabs/diagnostic/initController.ts:333",
-      "src/okop/tabs/diagnostic/initController.ts:337",
-      "src/okop/tabs/diagnostic/initController.ts:374",
-      "src/okop/tabs/diagnostic/initController.ts:378"
+      "src/okop/tabs/diagnostic/initController.ts:141",
+      "src/okop/tabs/diagnostic/initController.ts:308",
+      "src/okop/tabs/diagnostic/initController.ts:312",
+      "src/okop/tabs/diagnostic/initController.ts:341",
+      "src/okop/tabs/diagnostic/initController.ts:345",
+      "src/okop/tabs/diagnostic/initController.ts:381",
+      "src/okop/tabs/diagnostic/initController.ts:385"
     ]
   },
   {
@@ -842,7 +842,7 @@
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:294"
+      "src/okop/tabs/diagnostic/initController.ts:303"
     ]
   },
   {
@@ -1236,7 +1236,7 @@
     "call": "Latest",
     "key": "Latest",
     "places": [
-      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:48"
+      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:46"
     ]
   },
   {
@@ -1267,6 +1267,13 @@
     "key": "Lists are downloaded through this connection",
     "places": [
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:284"
+    ]
+  },
+  {
+    "call": "Lists downloaded before keep working",
+    "key": "Lists downloaded before keep working",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:45"
     ]
   },
   {
@@ -1343,7 +1350,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:330"
+      "src/okop/tabs/dashboard/initController.ts:385"
     ]
   },
   {
@@ -1484,14 +1491,14 @@
     "call": "Okop",
     "key": "Okop",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:362"
+      "src/okop/tabs/dashboard/initController.ts:417"
     ]
   },
   {
-    "call": "Okop is not running, the lists are not updated",
-    "key": "Okop is not running, the lists are not updated",
+    "call": "Okop is not running, the lists cannot be updated",
+    "key": "Okop is not running, the lists cannot be updated",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:132"
+      "src/okop/tabs/diagnostic/initController.ts:146"
     ]
   },
   {
@@ -1540,7 +1547,7 @@
     "call": "Outdated",
     "key": "Outdated",
     "places": [
-      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:38"
+      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:36"
     ]
   },
   {
@@ -1913,7 +1920,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:359"
+      "src/okop/tabs/dashboard/initController.ts:414"
     ]
   },
   {
@@ -1927,7 +1934,7 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:362",
+      "src/okop/tabs/diagnostic/initController.ts:369",
       "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:128"
     ]
   },
@@ -1942,7 +1949,7 @@
     "call": "Sing-box",
     "key": "Sing-box",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:371"
+      "src/okop/tabs/dashboard/initController.ts:426"
     ]
   },
   {
@@ -2076,7 +2083,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:323"
+      "src/okop/tabs/dashboard/initController.ts:378"
     ]
   },
   {
@@ -2126,8 +2133,8 @@
     "call": "The lists update did not finish",
     "key": "The lists update did not finish",
     "places": [
-      "src/okop/tabs/dashboard/getListUpdateRow.ts:122",
-      "src/okop/tabs/diagnostic/initController.ts:141"
+      "src/okop/tabs/diagnostic/initController.ts:155",
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:122"
     ]
   },
   {
@@ -2159,13 +2166,6 @@
     ]
   },
   {
-    "call": "The previous copies are used",
-    "key": "The previous copies are used",
-    "places": [
-      "src/okop/tabs/dashboard/getListUpdateRow.ts:45"
-    ]
-  },
-  {
     "call": "The URL used to test server connectivity",
     "key": "The URL used to test server connectivity",
     "places": [
@@ -2190,7 +2190,7 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:257"
+      "src/okop/tabs/dashboard/initController.ts:312"
     ]
   },
   {
@@ -2204,7 +2204,7 @@
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:287"
+      "src/okop/tabs/dashboard/initController.ts:342"
     ]
   },
   {
@@ -2281,8 +2281,8 @@
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:259",
-      "src/okop/tabs/dashboard/initController.ts:290"
+      "src/okop/tabs/dashboard/initController.ts:314",
+      "src/okop/tabs/dashboard/initController.ts:345"
     ]
   },
   {
@@ -2387,7 +2387,7 @@
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:328",
+      "src/okop/tabs/diagnostic/initController.ts:336",
       "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:119"
     ]
   },
