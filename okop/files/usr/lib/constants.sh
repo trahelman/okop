@@ -19,6 +19,10 @@ REMOTE_RULESETS_INDEX="$TMP_SING_BOX_FOLDER/remote_rulesets"
 CACHED_LISTS_INDEX="$TMP_SING_BOX_FOLDER/cached_lists"
 # Held by the running lists update
 LIST_UPDATE_LOCK="/var/lock/okop_list_update"
+# Result of the last lists update for LuCI: JSON with state, started, finished, reason, failed
+LIST_UPDATE_STATUS_FILE="/var/run/okop_list_update.status"
+# URLs that could not be downloaded during the running update, one per line
+LIST_UPDATE_FAILED_FILE="/var/run/okop_list_update.failed"
 # Serializes start, stop, reload and restart
 OKOP_LOCK_FILE="/var/lock/okop.lock"
 CLOUDFLARE_OCTETS="8.47 162.159 188.114" # Endpoints https://github.com/ampetelin/warp-endpoint-checker

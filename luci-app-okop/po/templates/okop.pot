@@ -20,35 +20,55 @@ msgstr ""
 msgid "%s was not renamed: %s"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:68
-msgid "⚠ sing-box DNS server is unreachable"
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:68
+msgid "⚠ Not all lists were updated"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:58
-msgid "⚠ sing-box is not responding"
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:64
+msgid "⚠ Not downloaded: %s"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:362
-msgid "✔ Enabled"
-msgstr ""
-
-#: src/okop/tabs/dashboard/initController.ts:372
-msgid "✔ Running"
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:80
+msgid "⚠ Not updated"
 msgstr ""
 
 #: src/okop/tabs/dashboard/getDnsGuardRow.ts:49
+msgid "⚠ sing-box DNS server is unreachable"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:39
+msgid "⚠ sing-box is not responding"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:87
+msgid "⚠ Update interrupted"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:418
+msgid "✔ Enabled"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:428
+msgid "✔ Running"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:53
+msgid "✔ Updated: %s"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:30
 msgid "✔ Working"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:362
+#: src/okop/tabs/dashboard/initController.ts:418
 msgid "✘ Disabled"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:80
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:61
 msgid "✘ Not running"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:373
+#: src/okop/tabs/dashboard/initController.ts:429
 msgid "✘ Stopped"
 msgstr ""
 
@@ -64,7 +84,7 @@ msgstr ""
 msgid "A name may contain only Latin letters, digits and _"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:325
+#: src/okop/tabs/dashboard/initController.ts:381
 msgid "Active Connections"
 msgstr ""
 
@@ -100,7 +120,7 @@ msgstr ""
 msgid "At least one valid subnet or IP must be specified. Comments-only content is not allowed."
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:43
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:46
 msgid "Available actions"
 msgstr ""
 
@@ -268,7 +288,7 @@ msgstr ""
 msgid "Directory for downloaded .srs and .json lists. Lists are kept across reboots, so sing-box starts even when they cannot be downloaded"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:79
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:82
 msgid "Disable autostart"
 msgstr ""
 
@@ -285,15 +305,19 @@ msgstr ""
 msgid "Disabled"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:60
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:41
 msgid "DNS and traffic to the lists go directly"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:72
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:31
+msgid "DNS does not work"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:53
 msgid "DNS goes through the regular servers, domains from the lists go directly"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:42
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:23
 msgid "DNS guard"
 msgstr ""
 
@@ -329,7 +353,7 @@ msgstr ""
 msgid "DNS server address cannot be empty"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:52
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:33
 msgid "dnsmasq is not switched: \"Dont Touch My DHCP!\" is on"
 msgstr ""
 
@@ -349,8 +373,8 @@ msgstr ""
 msgid "Dont Touch My DHCP!"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:259
-#: src/okop/tabs/dashboard/initController.ts:293
+#: src/okop/tabs/dashboard/initController.ts:315
+#: src/okop/tabs/dashboard/initController.ts:349
 msgid "Downlink"
 msgstr ""
 
@@ -375,7 +399,7 @@ msgstr ""
 msgid "Dynamic List"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:89
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:92
 msgid "Enable autostart"
 msgstr ""
 
@@ -444,12 +468,13 @@ msgstr ""
 msgid "Failed to copy!"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/initController.ts:227
-#: src/okop/tabs/diagnostic/initController.ts:231
-#: src/okop/tabs/diagnostic/initController.ts:261
-#: src/okop/tabs/diagnostic/initController.ts:265
-#: src/okop/tabs/diagnostic/initController.ts:302
-#: src/okop/tabs/diagnostic/initController.ts:306
+#: src/okop/tabs/diagnostic/initController.ts:141
+#: src/okop/tabs/diagnostic/initController.ts:308
+#: src/okop/tabs/diagnostic/initController.ts:312
+#: src/okop/tabs/diagnostic/initController.ts:341
+#: src/okop/tabs/diagnostic/initController.ts:345
+#: src/okop/tabs/diagnostic/initController.ts:381
+#: src/okop/tabs/diagnostic/initController.ts:385
 msgid "Failed to execute!"
 msgstr ""
 
@@ -474,11 +499,15 @@ msgstr ""
 msgid "fully routed IPs: %d"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:98
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:110
 msgid "Get global check"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/initController.ts:222
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:32
+msgid "GitHub is unreachable"
+msgstr ""
+
+#: src/okop/tabs/diagnostic/initController.ts:303
 msgid "Global check"
 msgstr ""
 
@@ -704,7 +733,7 @@ msgstr ""
 msgid "Issues detected"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:48
+#: src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:46
 msgid "Latest"
 msgstr ""
 
@@ -718,6 +747,7 @@ msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:108
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:115
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:44
 msgid "Lists"
 msgstr ""
 
@@ -725,8 +755,20 @@ msgstr ""
 msgid "Lists are downloaded through this connection"
 msgstr ""
 
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:45
+msgid "Lists downloaded before keep working"
+msgstr ""
+
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:370
 msgid "Lists Storage Path"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:103
+msgid "Lists updated"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:113
+msgid "Lists were not updated: %s"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:399
@@ -757,7 +799,7 @@ msgstr ""
 msgid "Members"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:329
+#: src/okop/tabs/dashboard/initController.ts:385
 msgid "Memory Usage"
 msgstr ""
 
@@ -801,10 +843,18 @@ msgstr ""
 msgid "No other marking rules found"
 msgstr ""
 
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:108
+msgid "Not all lists were updated"
+msgstr ""
+
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:38
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:104
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:47
 msgid "not configured"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:107
+msgid "Not downloaded: %s"
 msgstr ""
 
 #: src/okop/tabs/diagnostic/partials/renderCheckSection.ts:189
@@ -817,20 +867,28 @@ msgstr ""
 msgid "Not responding"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:55
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:63
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:71
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:79
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:87
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:58
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:66
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:74
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:82
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:90
 msgid "Not running"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:92
+msgid "Not updated yet"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:230
 msgid "not used"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:361
+#: src/okop/tabs/dashboard/initController.ts:417
 msgid "Okop"
+msgstr ""
+
+#: src/okop/tabs/diagnostic/initController.ts:146
+msgid "Okop is not running, the lists cannot be updated"
 msgstr ""
 
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/okop.js:206
@@ -857,7 +915,7 @@ msgstr ""
 msgid "Outbound must be a JSON object with a \"type\" field"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:38
+#: src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:36
 msgid "Outdated"
 msgstr ""
 
@@ -883,11 +941,11 @@ msgstr ""
 msgid "Path must end with cache.db"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:103
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:111
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:119
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:127
-#: src/okop/tabs/diagnostic/diagnostic.store.ts:135
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:106
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:114
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:122
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:130
+#: src/okop/tabs/diagnostic/diagnostic.store.ts:138
 msgid "Pending"
 msgstr ""
 
@@ -949,7 +1007,7 @@ msgstr ""
 msgid "Resolve real IP for routing"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:49
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:52
 msgid "Restart okop"
 msgstr ""
 
@@ -1074,7 +1132,7 @@ msgstr ""
 msgid "Send the traffic of the lists through a connection, block it, or let it go directly"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:358
+#: src/okop/tabs/dashboard/initController.ts:414
 msgid "Services info"
 msgstr ""
 
@@ -1082,16 +1140,16 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/initController.ts:290
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:116
+#: src/okop/tabs/diagnostic/initController.ts:369
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:128
 msgid "Show sing-box config"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:35
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:16
 msgid "since %s"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:370
+#: src/okop/tabs/dashboard/initController.ts:426
 msgid "Sing-box"
 msgstr ""
 
@@ -1152,11 +1210,11 @@ msgstr ""
 msgid "Specify the port number on which the mixed proxy will run for this connection. Make sure the selected port is not used by another service"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:69
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:72
 msgid "Start okop"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:59
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:62
 msgid "Stop okop"
 msgstr ""
 
@@ -1168,7 +1226,7 @@ msgstr ""
 msgid "Successfully copied!"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:322
+#: src/okop/tabs/dashboard/initController.ts:378
 msgid "System info"
 msgstr ""
 
@@ -1197,6 +1255,15 @@ msgstr ""
 msgid "The DNS server used to look up the IP address of an upstream DNS server"
 msgstr ""
 
+#: src/okop/tabs/diagnostic/initController.ts:155
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:122
+msgid "The lists update did not finish"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:120
+msgid "The lists update was interrupted"
+msgstr ""
+
 #: ../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:457
 msgid "The maximum difference in response times (ms) allowed when comparing servers"
 msgstr ""
@@ -1221,15 +1288,15 @@ msgstr ""
 msgid "Time in seconds for DNS record caching (default: 60)"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:256
+#: src/okop/tabs/dashboard/initController.ts:312
 msgid "Traffic"
 msgstr ""
 
-#: src/okop/tabs/dashboard/getDnsGuardRow.ts:61
+#: src/okop/tabs/dashboard/getDnsGuardRow.ts:42
 msgid "Traffic to the lists goes directly"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:286
+#: src/okop/tabs/dashboard/initController.ts:342
 msgid "Traffic Total"
 msgstr ""
 
@@ -1250,12 +1317,12 @@ msgstr ""
 msgid "UDP over TCP"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/initController.ts:38
-#: src/okop/tabs/diagnostic/initController.ts:39
-#: src/okop/tabs/diagnostic/initController.ts:40
-#: src/okop/tabs/diagnostic/initController.ts:41
-#: src/okop/tabs/diagnostic/initController.ts:42
-#: src/okop/tabs/diagnostic/initController.ts:43
+#: src/okop/tabs/diagnostic/initController.ts:44
+#: src/okop/tabs/diagnostic/initController.ts:45
+#: src/okop/tabs/diagnostic/initController.ts:46
+#: src/okop/tabs/diagnostic/initController.ts:47
+#: src/okop/tabs/diagnostic/initController.ts:48
+#: src/okop/tabs/diagnostic/initController.ts:49
 #: src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:7
 msgid "unknown"
 msgstr ""
@@ -1268,8 +1335,16 @@ msgstr ""
 msgid "Unreachable"
 msgstr ""
 
-#: src/okop/tabs/dashboard/initController.ts:258
-#: src/okop/tabs/dashboard/initController.ts:289
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:101
+msgid "Update lists"
+msgstr ""
+
+#: src/okop/tabs/dashboard/getListUpdateRow.ts:49
+msgid "Updating…"
+msgstr ""
+
+#: src/okop/tabs/dashboard/initController.ts:314
+#: src/okop/tabs/dashboard/initController.ts:345
 msgid "Uplink"
 msgstr ""
 
@@ -1335,8 +1410,8 @@ msgstr ""
 msgid "Validation errors:"
 msgstr ""
 
-#: src/okop/tabs/diagnostic/initController.ts:256
-#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:107
+#: src/okop/tabs/diagnostic/initController.ts:336
+#: src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:119
 msgid "View logs"
 msgstr ""
 

@@ -28,6 +28,14 @@ export const OkopShellMethods = {
     callBaseMethod<Okop.GetDnsGuardStatus>(
       Okop.AvailableMethods.GET_DNS_GUARD_STATUS,
     ),
+  listUpdateStart: async () =>
+    callBaseMethod<Okop.ListUpdateStartResult>(
+      Okop.AvailableMethods.LIST_UPDATE_START,
+    ),
+  getListUpdateStatus: async () =>
+    callBaseMethod<Okop.GetListUpdateStatus>(
+      Okop.AvailableMethods.LIST_UPDATE_STATUS,
+    ),
   getClashApiProxies: async () =>
     callBaseMethod<ClashAPI.Proxies>(Okop.AvailableMethods.CLASH_API, [
       Okop.AvailableClashAPIMethods.GET_PROXIES,

@@ -4,6 +4,7 @@ import {
   renderCirclePlayIcon24,
   renderCircleStopIcon24,
   renderCogIcon24,
+  renderDownloadIcon24,
   renderPauseIcon24,
   renderPlayIcon24,
   renderRotateCcwIcon24,
@@ -27,6 +28,7 @@ interface IRenderAvailableActionsProps {
   globalCheck: ActionProps;
   viewLogs: ActionProps;
   showSingBoxConfig: ActionProps;
+  listUpdate: ActionProps;
 }
 
 export function renderAvailableActions({
@@ -38,6 +40,7 @@ export function renderAvailableActions({
   globalCheck,
   viewLogs,
   showSingBoxConfig,
+  listUpdate,
 }: IRenderAvailableActionsProps) {
   return E('div', { class: 'pdk_diagnostic-page__right-bar__actions' }, [
     E('b', {}, _('Available actions')),
@@ -89,6 +92,15 @@ export function renderAvailableActions({
         text: _('Enable autostart'),
         loading: enable.loading,
         disabled: enable.disabled,
+      }),
+    ]),
+    ...insertIf(listUpdate.visible, [
+      renderButton({
+        onClick: listUpdate.onClick,
+        icon: renderDownloadIcon24,
+        text: _('Update lists'),
+        loading: listUpdate.loading,
+        disabled: listUpdate.disabled,
       }),
     ]),
     ...insertIf(globalCheck.visible, [

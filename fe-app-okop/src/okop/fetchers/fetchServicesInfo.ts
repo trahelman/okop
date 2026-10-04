@@ -2,10 +2,11 @@ import { OkopShellMethods } from '../methods';
 import { store } from '../services';
 
 export async function fetchServicesInfo() {
-  const [okop, singbox, dnsGuard] = await Promise.all([
+  const [okop, singbox, dnsGuard, listUpdate] = await Promise.all([
     OkopShellMethods.getStatus(),
     OkopShellMethods.getSingBoxStatus(),
     OkopShellMethods.getDnsGuardStatus(),
+    OkopShellMethods.getListUpdateStatus(),
   ]);
 
   if (!okop.success || !singbox.success) {
@@ -29,6 +30,10 @@ export async function fetchServicesInfo() {
           dnsGuard:
             dnsGuard.success && typeof dnsGuard.data === 'object'
               ? dnsGuard.data
+              : undefined,
+          listUpdate:
+            listUpdate.success && typeof listUpdate.data === 'object'
+              ? listUpdate.data
               : undefined,
         },
       },

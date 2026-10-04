@@ -56,6 +56,8 @@ export namespace Okop {
     CHECK_SING_BOX = 'check_sing_box',
     GET_SING_BOX_STATUS = 'get_sing_box_status',
     GET_DNS_GUARD_STATUS = 'get_dns_guard_status',
+    LIST_UPDATE_START = 'list_update_start',
+    LIST_UPDATE_STATUS = 'list_update_status',
     CLASH_API = 'clash_api',
     RESTART = 'restart',
     START = 'start',
@@ -184,6 +186,30 @@ export namespace Okop {
     since: number;
     // 0 with "Dont Touch My DHCP!": the guard does not switch dnsmasq
     manage_dnsmasq: number;
+  }
+
+  export type ListUpdateState =
+    | 'none'
+    | 'running'
+    | 'ok'
+    | 'partial'
+    | 'network'
+    | 'interrupted';
+
+  export interface GetListUpdateStatus {
+    state: ListUpdateState;
+    // Unix time, finished is 0 while the update runs
+    started: number;
+    finished: number;
+    // With state "network": dns or github
+    reason: string;
+    // URLs that could not be downloaded
+    failed: string[];
+  }
+
+  export interface ListUpdateStartResult {
+    started: number;
+    reason: '' | 'not_running' | 'already_running';
   }
 
   export interface GetSingBoxStatus {

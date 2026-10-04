@@ -7,59 +7,94 @@
     ]
   },
   {
+    "call": "⚠ Not all lists were updated",
+    "key": "⚠ Not all lists were updated",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:68"
+    ]
+  },
+  {
+    "call": "⚠ Not downloaded: %s",
+    "key": "⚠ Not downloaded: %s",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:64"
+    ]
+  },
+  {
+    "call": "⚠ Not updated",
+    "key": "⚠ Not updated",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:80"
+    ]
+  },
+  {
     "call": "⚠ sing-box DNS server is unreachable",
     "key": "⚠ sing-box DNS server is unreachable",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:68"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:49"
     ]
   },
   {
     "call": "⚠ sing-box is not responding",
     "key": "⚠ sing-box is not responding",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:58"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:39"
+    ]
+  },
+  {
+    "call": "⚠ Update interrupted",
+    "key": "⚠ Update interrupted",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:87"
     ]
   },
   {
     "call": "✔ Enabled",
     "key": "✔ Enabled",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:362"
+      "src/okop/tabs/dashboard/initController.ts:418"
     ]
   },
   {
     "call": "✔ Running",
     "key": "✔ Running",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:372"
+      "src/okop/tabs/dashboard/initController.ts:428"
+    ]
+  },
+  {
+    "call": "✔ Updated: %s",
+    "key": "✔ Updated: %s",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:53"
     ]
   },
   {
     "call": "✔ Working",
     "key": "✔ Working",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:49"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:30"
     ]
   },
   {
     "call": "✘ Disabled",
     "key": "✘ Disabled",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:362"
+      "src/okop/tabs/dashboard/initController.ts:418"
     ]
   },
   {
     "call": "✘ Not running",
     "key": "✘ Not running",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:80"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:61"
     ]
   },
   {
     "call": "✘ Stopped",
     "key": "✘ Stopped",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:373"
+      "src/okop/tabs/dashboard/initController.ts:429"
     ]
   },
   {
@@ -87,7 +122,7 @@
     "call": "Active Connections",
     "key": "Active Connections",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:325"
+      "src/okop/tabs/dashboard/initController.ts:381"
     ]
   },
   {
@@ -150,7 +185,7 @@
     "call": "Available actions",
     "key": "Available actions",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:43"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:46"
     ]
   },
   {
@@ -435,7 +470,7 @@
     "call": "Disable autostart",
     "key": "Disable autostart",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:79"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:82"
     ]
   },
   {
@@ -464,21 +499,28 @@
     "call": "DNS and traffic to the lists go directly",
     "key": "DNS and traffic to the lists go directly",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:60"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:41"
+    ]
+  },
+  {
+    "call": "DNS does not work",
+    "key": "DNS does not work",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:31"
     ]
   },
   {
     "call": "DNS goes through the regular servers, domains from the lists go directly",
     "key": "DNS goes through the regular servers, domains from the lists go directly",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:72"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:53"
     ]
   },
   {
     "call": "DNS guard",
     "key": "DNS guard",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:42"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:23"
     ]
   },
   {
@@ -538,7 +580,7 @@
     "call": "dnsmasq is not switched: \"Dont Touch My DHCP!\" is on",
     "key": "dnsmasq is not switched: \"Dont Touch My DHCP!\" is on",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:52"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:33"
     ]
   },
   {
@@ -573,8 +615,8 @@
     "call": "Downlink",
     "key": "Downlink",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:259",
-      "src/okop/tabs/dashboard/initController.ts:293"
+      "src/okop/tabs/dashboard/initController.ts:315",
+      "src/okop/tabs/dashboard/initController.ts:349"
     ]
   },
   {
@@ -617,7 +659,7 @@
     "call": "Enable autostart",
     "key": "Enable autostart",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:89"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:92"
     ]
   },
   {
@@ -737,12 +779,13 @@
     "call": "Failed to execute!",
     "key": "Failed to execute!",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:227",
-      "src/okop/tabs/diagnostic/initController.ts:231",
-      "src/okop/tabs/diagnostic/initController.ts:261",
-      "src/okop/tabs/diagnostic/initController.ts:265",
-      "src/okop/tabs/diagnostic/initController.ts:302",
-      "src/okop/tabs/diagnostic/initController.ts:306"
+      "src/okop/tabs/diagnostic/initController.ts:141",
+      "src/okop/tabs/diagnostic/initController.ts:308",
+      "src/okop/tabs/diagnostic/initController.ts:312",
+      "src/okop/tabs/diagnostic/initController.ts:341",
+      "src/okop/tabs/diagnostic/initController.ts:345",
+      "src/okop/tabs/diagnostic/initController.ts:381",
+      "src/okop/tabs/diagnostic/initController.ts:385"
     ]
   },
   {
@@ -785,14 +828,21 @@
     "call": "Get global check",
     "key": "Get global check",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:98"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:110"
+    ]
+  },
+  {
+    "call": "GitHub is unreachable",
+    "key": "GitHub is unreachable",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:32"
     ]
   },
   {
     "call": "Global check",
     "key": "Global check",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:222"
+      "src/okop/tabs/diagnostic/initController.ts:303"
     ]
   },
   {
@@ -1186,7 +1236,7 @@
     "call": "Latest",
     "key": "Latest",
     "places": [
-      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:48"
+      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:46"
     ]
   },
   {
@@ -1208,7 +1258,8 @@
     "key": "Lists",
     "places": [
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:108",
-      "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:115"
+      "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:115",
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:44"
     ]
   },
   {
@@ -1219,10 +1270,31 @@
     ]
   },
   {
+    "call": "Lists downloaded before keep working",
+    "key": "Lists downloaded before keep working",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:45"
+    ]
+  },
+  {
     "call": "Lists Storage Path",
     "key": "Lists Storage Path",
     "places": [
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:370"
+    ]
+  },
+  {
+    "call": "Lists updated",
+    "key": "Lists updated",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:103"
+    ]
+  },
+  {
+    "call": "Lists were not updated: %s",
+    "key": "Lists were not updated: %s",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:113"
     ]
   },
   {
@@ -1278,7 +1350,7 @@
     "call": "Memory Usage",
     "key": "Memory Usage",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:329"
+      "src/okop/tabs/dashboard/initController.ts:385"
     ]
   },
   {
@@ -1352,12 +1424,26 @@
     ]
   },
   {
+    "call": "Not all lists were updated",
+    "key": "Not all lists were updated",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:108"
+    ]
+  },
+  {
     "call": "not configured",
     "key": "not configured",
     "places": [
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:38",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/outbound.js:104",
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/section.js:47"
+    ]
+  },
+  {
+    "call": "Not downloaded: %s",
+    "key": "Not downloaded: %s",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:107"
     ]
   },
   {
@@ -1380,11 +1466,18 @@
     "call": "Not running",
     "key": "Not running",
     "places": [
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:55",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:63",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:71",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:79",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:87"
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:58",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:66",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:74",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:82",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:90"
+    ]
+  },
+  {
+    "call": "Not updated yet",
+    "key": "Not updated yet",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:92"
     ]
   },
   {
@@ -1398,7 +1491,14 @@
     "call": "Okop",
     "key": "Okop",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:361"
+      "src/okop/tabs/dashboard/initController.ts:417"
+    ]
+  },
+  {
+    "call": "Okop is not running, the lists cannot be updated",
+    "key": "Okop is not running, the lists cannot be updated",
+    "places": [
+      "src/okop/tabs/diagnostic/initController.ts:146"
     ]
   },
   {
@@ -1447,7 +1547,7 @@
     "call": "Outdated",
     "key": "Outdated",
     "places": [
-      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:38"
+      "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:36"
     ]
   },
   {
@@ -1491,11 +1591,11 @@
     "call": "Pending",
     "key": "Pending",
     "places": [
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:103",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:111",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:119",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:127",
-      "src/okop/tabs/diagnostic/diagnostic.store.ts:135"
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:106",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:114",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:122",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:130",
+      "src/okop/tabs/diagnostic/diagnostic.store.ts:138"
     ]
   },
   {
@@ -1602,7 +1702,7 @@
     "call": "Restart okop",
     "key": "Restart okop",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:49"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:52"
     ]
   },
   {
@@ -1820,7 +1920,7 @@
     "call": "Services info",
     "key": "Services info",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:358"
+      "src/okop/tabs/dashboard/initController.ts:414"
     ]
   },
   {
@@ -1834,22 +1934,22 @@
     "call": "Show sing-box config",
     "key": "Show sing-box config",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:290",
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:116"
+      "src/okop/tabs/diagnostic/initController.ts:369",
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:128"
     ]
   },
   {
     "call": "since %s",
     "key": "since %s",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:35"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:16"
     ]
   },
   {
     "call": "Sing-box",
     "key": "Sing-box",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:370"
+      "src/okop/tabs/dashboard/initController.ts:426"
     ]
   },
   {
@@ -1955,14 +2055,14 @@
     "call": "Start okop",
     "key": "Start okop",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:69"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:72"
     ]
   },
   {
     "call": "Stop okop",
     "key": "Stop okop",
     "places": [
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:59"
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:62"
     ]
   },
   {
@@ -1983,7 +2083,7 @@
     "call": "System info",
     "key": "System info",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:322"
+      "src/okop/tabs/dashboard/initController.ts:378"
     ]
   },
   {
@@ -2027,6 +2127,21 @@
     "key": "The DNS server used to look up the IP address of an upstream DNS server",
     "places": [
       "../luci-app-okop/htdocs/luci-static/resources/view/okop/settings.js:46"
+    ]
+  },
+  {
+    "call": "The lists update did not finish",
+    "key": "The lists update did not finish",
+    "places": [
+      "src/okop/tabs/diagnostic/initController.ts:155",
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:122"
+    ]
+  },
+  {
+    "call": "The lists update was interrupted",
+    "key": "The lists update was interrupted",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:120"
     ]
   },
   {
@@ -2075,21 +2190,21 @@
     "call": "Traffic",
     "key": "Traffic",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:256"
+      "src/okop/tabs/dashboard/initController.ts:312"
     ]
   },
   {
     "call": "Traffic to the lists goes directly",
     "key": "Traffic to the lists goes directly",
     "places": [
-      "src/okop/tabs/dashboard/getDnsGuardRow.ts:61"
+      "src/okop/tabs/dashboard/getDnsGuardRow.ts:42"
     ]
   },
   {
     "call": "Traffic Total",
     "key": "Traffic Total",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:286"
+      "src/okop/tabs/dashboard/initController.ts:342"
     ]
   },
   {
@@ -2125,12 +2240,12 @@
     "call": "unknown",
     "key": "unknown",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:38",
-      "src/okop/tabs/diagnostic/initController.ts:39",
-      "src/okop/tabs/diagnostic/initController.ts:40",
-      "src/okop/tabs/diagnostic/initController.ts:41",
-      "src/okop/tabs/diagnostic/initController.ts:42",
-      "src/okop/tabs/diagnostic/initController.ts:43",
+      "src/okop/tabs/diagnostic/initController.ts:44",
+      "src/okop/tabs/diagnostic/initController.ts:45",
+      "src/okop/tabs/diagnostic/initController.ts:46",
+      "src/okop/tabs/diagnostic/initController.ts:47",
+      "src/okop/tabs/diagnostic/initController.ts:48",
+      "src/okop/tabs/diagnostic/initController.ts:49",
       "src/okop/tabs/diagnostic/helpers/getOkopVersionRow.ts:7"
     ]
   },
@@ -2149,11 +2264,25 @@
     ]
   },
   {
+    "call": "Update lists",
+    "key": "Update lists",
+    "places": [
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:101"
+    ]
+  },
+  {
+    "call": "Updating…",
+    "key": "Updating…",
+    "places": [
+      "src/okop/tabs/dashboard/getListUpdateRow.ts:49"
+    ]
+  },
+  {
     "call": "Uplink",
     "key": "Uplink",
     "places": [
-      "src/okop/tabs/dashboard/initController.ts:258",
-      "src/okop/tabs/dashboard/initController.ts:289"
+      "src/okop/tabs/dashboard/initController.ts:314",
+      "src/okop/tabs/dashboard/initController.ts:345"
     ]
   },
   {
@@ -2258,8 +2387,8 @@
     "call": "View logs",
     "key": "View logs",
     "places": [
-      "src/okop/tabs/diagnostic/initController.ts:256",
-      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:107"
+      "src/okop/tabs/diagnostic/initController.ts:336",
+      "src/okop/tabs/diagnostic/partials/renderAvailableActions.ts:119"
     ]
   },
   {

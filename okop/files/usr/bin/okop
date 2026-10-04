@@ -753,7 +753,8 @@ dns_guard() {
         # For the dashboard: the time is that of the switch, so it is written only on a change
         state="$(dns_guard_state "$manage_dnsmasq")"
         if [ "$state" != "$recorded_state" ]; then
-            echo "$state $(date +%s)" > "$DNS_GUARD_STATE_FILE"
+            # Moved in place, so that get_dns_guard_status never reads it half-written
+            echo "$state $(date +%s)" > "$DNS_GUARD_STATE_FILE.tmp" && mv "$DNS_GUARD_STATE_FILE.tmp" "$DNS_GUARD_STATE_FILE"
             recorded_state="$state"
         fi
 
@@ -1091,12 +1092,21 @@ remove_cron_job() {
     log "The cron job removed"
 }
 
-# Returns 1 when the network is not ready (DNS or GitHub unreachable), 2 when some lists failed
+# Returns 1 when the network is not ready (DNS or GitHub unreachable), 2 when some lists failed,
+# 3 when another update holds the lock. "locked": list_update_start has taken the lock for this update.
 list_update() {
-    if ! list_update_lock; then
+    if [ "${1:-}" = "locked" ]; then
+        # The lock is gone when okop was stopped right after the start
+        list_update_take_over_lock || return 3
+    elif ! list_update_lock; then
         echolog "Lists are already being updated"
-        return 0
+        return 3
     fi
+
+    local started
+    started="$(date +%s)"
+    : > "$LIST_UPDATE_FAILED_FILE"
+    list_update_write_status "running" "$started"
 
     echolog "🔄 Starting lists update..."
 
@@ -1122,6 +1132,7 @@ list_update() {
 
     if [ "$passed" -eq 0 ]; then
         echolog "❌ DNS check failed after $nslookup_attempts attempts"
+        list_update_write_status "network" "$started" "dns"
         list_update_unlock
         return 1
     fi
@@ -1156,6 +1167,7 @@ list_update() {
 
     if [ "$passed" -eq 0 ]; then
         echolog "❌ GitHub connection check failed after $curl_attempts attempts"
+        list_update_write_status "network" "$started" "github"
         list_update_unlock
         return 1
     fi
@@ -1166,6 +1178,11 @@ list_update() {
     update_remote_rulesets || status=2
     import_lists "update" || status=2
 
+    if [ "$status" -eq 0 ]; then
+        list_update_write_status "ok" "$started"
+    else
+        list_update_write_status "partial" "$started"
+    fi
     list_update_unlock
 
     if [ "$status" -eq 0 ]; then
@@ -1175,6 +1192,81 @@ list_update() {
     fi
 
     return "$status"
+}
+
+# state: running, ok, network (reason dns or github) or partial (the URLs that failed are listed)
+list_update_write_status() {
+    local state="$1"
+    local started="$2"
+    local reason="${3:-}"
+
+    local finished=0 tmpfile="$LIST_UPDATE_STATUS_FILE.$$.tmp"
+    [ "$state" = "running" ] || finished="$(date +%s)"
+
+    # Written next to the target and moved, so that LuCI never reads it half-written
+    jq -Rn --arg state "$state" --argjson started "$started" --argjson finished "$finished" \
+        --arg reason "$reason" \
+        '{state: $state, started: $started, finished: $finished, reason: $reason, failed: [inputs | select(length > 0)] | unique}' \
+        < "$LIST_UPDATE_FAILED_FILE" > "$tmpfile" 2> /dev/null &&
+        mv "$tmpfile" "$LIST_UPDATE_STATUS_FILE"
+    rm -f "$tmpfile"
+}
+
+list_update_failed_add() {
+    echo "$1" >> "$LIST_UPDATE_FAILED_FILE"
+}
+
+# For the LuCI button: the update runs longer than rpcd lets a command run (30 seconds), so it is started
+# in the background and LuCI polls list_update_status. An update already running is not started twice.
+# The lock is taken here and handed over to the background update, so that it is held without a gap.
+list_update_start() {
+    if ! nft list table inet "$NFT_TABLE_NAME" > /dev/null 2>&1; then
+        echo '{"started":0,"reason":"not_running"}'
+        return 0
+    fi
+
+    if ! list_update_lock; then
+        echo '{"started":0,"reason":"already_running"}'
+        return 0
+    fi
+
+    # Shown as running right away, before the background update starts
+    : > "$LIST_UPDATE_FAILED_FILE"
+    list_update_write_status "running" "$(date +%s)"
+
+    local own_pid i
+    read -r own_pid _ < /proc/self/stat
+    run_detached list_update locked
+    for i in 1 2 3 4 5; do
+        [ "$(cat "$LIST_UPDATE_LOCK/pid" 2> /dev/null)" != "$own_pid" ] && break
+        sleep 1
+    done
+
+    echo '{"started":1,"reason":""}'
+}
+
+# An update killed by "okop stop" or a reboot leaves "running" behind. It is reported as interrupted
+# once nobody holds the lock and a few seconds have passed since the start.
+list_update_status() {
+    if [ ! -s "$LIST_UPDATE_STATUS_FILE" ]; then
+        echo '{"state":"none","started":0,"finished":0,"reason":"","failed":[]}'
+        return 0
+    fi
+
+    local state started
+    state="$(jq -r '.state' "$LIST_UPDATE_STATUS_FILE" 2> /dev/null)"
+    started="$(jq -r '.started' "$LIST_UPDATE_STATUS_FILE" 2> /dev/null)"
+
+    local age
+    age=$(($(date +%s) - ${started:-0}))
+    # A negative age: the clock was set back (NTP after boot), the start time says nothing
+    if [ "$state" = "running" ] && ! okop_background_job_running "$LIST_UPDATE_LOCK/pid" &&
+        { [ "$age" -gt 10 ] || [ "$age" -lt 0 ]; }; then
+        jq -c '.state = "interrupted"' "$LIST_UPDATE_STATUS_FILE"
+        return 0
+    fi
+
+    jq -c '.' "$LIST_UPDATE_STATUS_FILE"
 }
 
 # Only one list update at a time: the one started with okop and the cron one write the same files.
@@ -1192,9 +1284,21 @@ list_update_lock() {
         return 1
     fi
 
+    # The holder has created the directory but not written its pid yet
+    if [ ! -f "$LIST_UPDATE_LOCK/pid" ] && [ -z "$(find "$LIST_UPDATE_LOCK" -maxdepth 0 -mmin +1 2> /dev/null)" ]; then
+        return 1
+    fi
+
     list_update_unlock
     mkdir "$LIST_UPDATE_LOCK" 2> /dev/null || return 1
     echo "$own_pid" > "$LIST_UPDATE_LOCK/pid"
+}
+
+# The background update started by list_update_start: the lock names the starting process until now
+list_update_take_over_lock() {
+    local own_pid
+    read -r own_pid _ < /proc/self/stat
+    echo "$own_pid" > "$LIST_UPDATE_LOCK/pid.$own_pid" && mv "$LIST_UPDATE_LOCK/pid.$own_pid" "$LIST_UPDATE_LOCK/pid"
 }
 
 list_update_unlock() {
@@ -1205,12 +1309,26 @@ list_update_unlock() {
 # Started in the background with okop: applies the stored lists right away, then downloads fresh ones,
 # retrying while the network is not ready yet (WAN or the proxy may come up after okop)
 lists_job() {
-    import_lists "cached"
+    # Under the lock: an update started meanwhile (from LuCI) would truncate the index of cached lists
+    # and clean the cache while this import still uses it. A holder imports everything itself.
+    if list_update_lock; then
+        import_lists "cached"
+        list_update_unlock
+    fi
 
     local delay=60 status
     while :; do
         list_update
         status=$?
+
+        # Another update (LuCI, cron) ran meanwhile: retry only if it found no network either
+        if [ "$status" -eq 3 ]; then
+            while okop_background_job_running "$LIST_UPDATE_LOCK/pid"; do
+                sleep 5
+            done
+            [ "$(jq -r '.state' "$LIST_UPDATE_STATUS_FILE" 2> /dev/null)" = "network" ] && status=1
+        fi
+
         [ "$status" -ne 1 ] && break
 
         log "Network is not ready for the lists update, retrying in ${delay}s" "warn"
@@ -2092,6 +2210,7 @@ update_remote_ruleset() {
     if ! download_to_file "$url" "$tmpfile" "$(get_service_proxy_address)" ||
         ! is_valid_ruleset_file "$tmpfile" "$format"; then
         log "Failed to download rule set $url, the previous copy is kept" "error"
+        list_update_failed_add "$url"
         rm -f "$tmpfile"
         return 1
     fi
@@ -2108,6 +2227,7 @@ update_remote_ruleset() {
     local partfile="$filepath.$$.tmp"
     if ! cp "$tmpfile" "$partfile" || ! chmod 644 "$partfile" || ! mv "$partfile" "$filepath"; then
         log "Failed to save rule set $filepath" "error"
+        list_update_failed_add "$url"
         rm -f "$tmpfile" "$partfile"
         return 1
     fi
@@ -2279,6 +2399,7 @@ update_cached_list() {
 
     if ! download_to_file "$url" "$tmpfile" "$(get_service_proxy_address)" || [ ! -s "$tmpfile" ]; then
         log "Failed to download $url, the previous copy is kept" "error"
+        list_update_failed_add "$url"
         rm -f "$tmpfile"
         return 1
     fi
@@ -2292,6 +2413,7 @@ update_cached_list() {
     partfile="$filepath.$$.tmp"
     if ! cp "$tmpfile" "$partfile" || ! chmod 644 "$partfile" || ! mv "$partfile" "$filepath"; then
         log "Failed to save list $filepath" "error"
+        list_update_failed_add "$url"
         rm -f "$tmpfile" "$partfile"
         return 1
     fi
@@ -2522,6 +2644,7 @@ import_subnets_from_ruleset_file() {
         nft_add_set_elements_from_file_chunked "$subnets_tmpfile" "$NFT_TABLE_NAME" "$NFT_COMMON_SET_NAME"
     else
         log "Cannot read subnets from $url, they will not be routed" "error"
+        list_update_failed_add "$url"
         status=1
     fi
 
@@ -3679,6 +3802,8 @@ Available commands:
     restart                 Restart okop service
     main                    Run main okop process
     list_update             Update domain lists
+    list_update_start       Start a lists update in the background (JSON)
+    list_update_status      Get the result of the last lists update in JSON format
     check_proxy             Check proxy connectivity
     check_nft               Check NFT rules
     check_nft_rules         Check NFT rules status
@@ -3723,6 +3848,12 @@ main)
     ;;
 list_update)
     list_update
+    ;;
+list_update_start)
+    list_update_start
+    ;;
+list_update_status)
+    list_update_status
     ;;
 check_proxy)
     check_proxy

@@ -9,6 +9,7 @@ export * from './renderTriangleAlertIcon24';
 export * from './renderPauseIcon24';
 export * from './renderPlayIcon24';
 export * from './renderRotateCcwIcon24';
+export * from './renderDownloadIcon24';
 export * from './renderCircleStopIcon24';
 export * from './renderCirclePlayIcon24';
 export * from './renderCircleCheckBigIcon24';

@@ -101,6 +101,28 @@ else
     fail "unexpected status after sing-box is back: $(guard_status)" || result=1
 fi
 
+info "Switching on \"Dont Touch My DHCP!\""
+on_router sh -c "uci set okop.settings.dont_touch_dhcp=1; uci commit okop; /etc/init.d/okop restart" > /dev/null 2>&1
+wait_okop
+block_upstream
+
+# The guard does not switch dnsmasq in this mode, so an unreachable DNS server changes nothing
+if wait_for 30 guard_state_is ok && [ "$(guard_field manage_dnsmasq)" = 0 ] && sleep 40 && guard_state_is ok; then
+    pass "with dont_touch_dhcp an unreachable DNS server is not reported as a switch"
+else
+    fail "unexpected status with dont_touch_dhcp and the DNS server blocked: $(guard_status)" || result=1
+fi
+unblock_upstream
+
+stopped_at="$(router_time)"
+on_router /etc/init.d/sing-box stop
+if wait_for 40 guard_switched_after sing_box_down "$stopped_at"; then
+    pass "with dont_touch_dhcp sing-box down is still reported"
+else
+    fail "unexpected status with dont_touch_dhcp and sing-box stopped: $(guard_status)" || result=1
+fi
+on_router /etc/init.d/sing-box start
+
 info "Stopping okop"
 on_router /etc/init.d/okop stop > /dev/null 2>&1
 

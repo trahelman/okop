@@ -164,6 +164,7 @@ export interface StoreType {
       okop: number;
       // Absent when the status could not be read
       dnsGuard?: Okop.GetDnsGuardStatus;
+      listUpdate?: Okop.GetListUpdateStatus;
     };
   };
   sectionsWidget: {
@@ -185,6 +186,7 @@ export interface StoreType {
     globalCheck: { loading: boolean };
     viewLogs: { loading: boolean };
     showSingBoxConfig: { loading: boolean };
+    listUpdate: { loading: boolean };
   };
   diagnosticsSystemInfo: {
     loading: boolean;
