@@ -103,7 +103,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Read release notes from the annotated tag
-        run: git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+        run: |
+          # checkout may recreate the triggering tag as a lightweight ref to its commit.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
       - name: Create release dir
         run: mkdir -p ./filtered-bin/release
 
