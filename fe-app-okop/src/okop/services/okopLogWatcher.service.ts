@@ -88,10 +88,7 @@ export class OkopLogWatcher {
     // Remembers what is already in the log right away, so that the first interval only reports new lines
     this.checkOnce();
     this.timer = setInterval(() => this.checkOnce(), this.intervalMs);
-    logger.info(
-      '[OkopLogWatcher]',
-      `started (interval: ${this.intervalMs}ms)`,
-    );
+    logger.info('[OkopLogWatcher]', `started (interval: ${this.intervalMs}ms)`);
   }
 
   stop(): void {

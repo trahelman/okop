@@ -114,6 +114,14 @@ remove_podkop() {
     msg "Podkop has been removed"
 }
 
+release_assets() {
+    local pkg_ext="$1"
+
+    # GitHub responses may be compact or indented. No jq is required before package installation.
+    tr -d '\r\n' | tr '{' '\n' \
+        | sed -n "s|.*\"url\"[[:space:]]*:[[:space:]]*\"\([^\"]*/releases/assets/[0-9]*\)\".*\"name\"[[:space:]]*:[[:space:]]*\"\([^\"]*\.$pkg_ext\)\".*|\1 \2|p"
+}
+
 main() {
     check_system
 
@@ -148,8 +156,7 @@ main() {
     # Assets are downloaded through api.github.com, not browser_download_url: the redirect from github.com
     # carries a ~9 KB Content-Security-Policy header, and uclient-fetch (/usr/bin/wget) stalls until the
     # timeout on header lines longer than its 4 KB buffer
-    wget -qO- "$REPO" | tr '{' '\n' \
-        | sed -n "s|.*\"url\":\"\([^\"]*/releases/assets/[0-9]*\)\".*\"name\":\"\([^\"]*\.$pkg_ext\)\".*|\1 \2|p" \
+    wget -qO- "$REPO" | release_assets "$pkg_ext" \
         | while read -r url filename; do
         filepath="$DOWNLOAD_DIR/$filename"
 

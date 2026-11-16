@@ -116,7 +116,7 @@ singbox_answers_fakeip() {
 
 client_fetches() {
     local url="${1:-https://openwrt.org}"
-    on_client curl -sS -o /dev/null -m 10 "$url"
+    on_client curl --compressed -sS -o /dev/null -m 10 "$url"
 }
 
 # The service answers "fakeip": true only when it sees the connection arrive through sing-box
