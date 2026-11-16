@@ -15,9 +15,7 @@ export function getOkopVersionRow(
   const hasActualVersion =
     Boolean(diagnosticsSystemInfo.okop_latest_version) &&
     !isUnknownVersion(diagnosticsSystemInfo.okop_latest_version);
-  const version = normalizeCompiledVersion(
-    diagnosticsSystemInfo.okop_version,
-  );
+  const version = normalizeCompiledVersion(diagnosticsSystemInfo.okop_version);
   const isDevVersion = version === 'dev';
 
   if (loading || unknown || !hasActualVersion || isDevVersion) {

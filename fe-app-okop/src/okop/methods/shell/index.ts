@@ -7,9 +7,7 @@ export const OkopShellMethods = {
       Okop.AvailableMethods.CHECK_DNS_AVAILABLE,
     ),
   checkFakeIP: async () =>
-    callBaseMethod<Okop.FakeIPCheckResult>(
-      Okop.AvailableMethods.CHECK_FAKEIP,
-    ),
+    callBaseMethod<Okop.FakeIPCheckResult>(Okop.AvailableMethods.CHECK_FAKEIP),
   checkNftRules: async () =>
     callBaseMethod<Okop.NftRulesCheckResult>(
       Okop.AvailableMethods.CHECK_NFT_RULES,
@@ -69,11 +67,7 @@ export const OkopShellMethods = {
       '/etc/init.d/okop',
     ),
   stop: async () =>
-    callBaseMethod<unknown>(
-      Okop.AvailableMethods.STOP,
-      [],
-      '/etc/init.d/okop',
-    ),
+    callBaseMethod<unknown>(Okop.AvailableMethods.STOP, [], '/etc/init.d/okop'),
   enable: async () =>
     callBaseMethod<unknown>(
       Okop.AvailableMethods.ENABLE,
@@ -93,7 +87,5 @@ export const OkopShellMethods = {
   checkLogs: async () =>
     callBaseMethod<unknown>(Okop.AvailableMethods.CHECK_LOGS),
   getSystemInfo: async () =>
-    callBaseMethod<Okop.GetSystemInfo>(
-      Okop.AvailableMethods.GET_SYSTEM_INFO,
-    ),
+    callBaseMethod<Okop.GetSystemInfo>(Okop.AvailableMethods.GET_SYSTEM_INFO),
 };
