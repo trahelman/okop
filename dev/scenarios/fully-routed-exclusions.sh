@@ -40,7 +40,7 @@ on_router sh -c "
 sleep 2
 wait_okop
 
-if on_client curl -sS -o /dev/null -m 10 https://openwrt.org &&
+if on_client curl --compressed -sS -o /dev/null -m 10 https://openwrt.org &&
     dc logs proxy --since 1m 2> /dev/null | grep -q "inbound connection to .*:443"; then
     pass "traffic of the client goes through the proxy"
 else

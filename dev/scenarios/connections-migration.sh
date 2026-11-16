@@ -69,7 +69,7 @@ for domain in example.com wikipedia.org; do
     fi
 done
 
-if wait_for 15 on_client curl -s -o /dev/null -m 10 -x "socks5h://$ROUTER_LAN_IP:2080" https://openwrt.org; then
+if wait_for 15 on_client curl --compressed -s -o /dev/null -m 10 -x "socks5h://$ROUTER_LAN_IP:2080" https://openwrt.org; then
     pass "the mixed proxy works"
 else
     fail "the mixed proxy does not work" || result=1
